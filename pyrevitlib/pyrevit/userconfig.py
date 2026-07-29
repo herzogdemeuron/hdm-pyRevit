@@ -400,7 +400,7 @@ class PyRevitConfig(configparser.PyRevitConfigParser):
         """Routes API host."""
         return self.routes.get_option(
             CONSTS.ConfigsRoutesHostKey,
-            default_value=CONSTS.ConfigsRoutesHostDefault,
+            default_value=CONSTS.ConfigsRoutesHostDefault or "127.0.0.1",
         )
 
     @routes_host.setter

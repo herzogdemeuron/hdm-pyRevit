@@ -111,7 +111,7 @@ namespace pyRevitLabs.PyRevit {
         public const string ConfigsRoutesServerKey = "enabled";
         public const bool ConfigsRoutesServerDefault = false;
         public const string ConfigsRoutesHostKey = "host";
-        public const string ConfigsRoutesHostDefault = "";
+        public const string ConfigsRoutesHostDefault = "127.0.0.1";
         public const string ConfigsRoutesPortKey = "port";
         public const int ConfigsRoutesPortDefault = 48884;
         public const string ConfigsLoadCoreAPIKey = "core_api";

@@ -92,7 +92,7 @@ def _get_new_serverinfo(data_file):
         host=HOST_APP.pretty_name,
         version=HOST_APP.version,
         process_id=HOST_APP.proc_id,
-        server_host=user_config.routes_host,
+        server_host=user_config.routes_host or "127.0.0.1",
         server_port=new_port
         )
     # store server info
