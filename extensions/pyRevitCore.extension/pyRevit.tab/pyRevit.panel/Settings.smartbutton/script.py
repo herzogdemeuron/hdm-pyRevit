@@ -442,7 +442,8 @@ class SettingsWindow(forms.WPFWindow):
             # setup example
             self.show_element(self.routes_exampleblock)
             self.routes_example.Text = "GET http://{}:{}/routes/status".format(
-                coreutils.get_my_ip(), user_config.routes_port
+                user_config.routes_host or "127.0.0.1",
+                user_config.routes_port,
             )
 
     def _setup_agent(self):

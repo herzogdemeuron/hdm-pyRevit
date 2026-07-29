@@ -497,7 +497,7 @@ class PyRevitConfig(object):
     @property
     def routes_host(self):
         """Routes API host."""
-        return self.routes.Host
+        return self.routes.Host or "127.0.0.1"
 
     @routes_host.setter
     def routes_host(self, routes_host):
