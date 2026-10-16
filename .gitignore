@@ -11,8 +11,8 @@ extensions/*
 !extensions/extensions.json
 !extensions/README.md
 !extensions/pyRevitBundlesCreatorExtension.extension/
-# Generated product binaries (build locally or download from CI artifacts)
-bin/
+# HdM: bin/ is tracked because the fork is rolled out via git
+# (upstream ignores it and ships binaries as release assets)
 
 # ignore visual studio files
 **/.vs
@@ -59,6 +59,7 @@ dist/
 site/
 *.pdb
 *.deps.json
+!bin/**/*.deps.json
 bin/**/*.xml
 *.so
 *.a
