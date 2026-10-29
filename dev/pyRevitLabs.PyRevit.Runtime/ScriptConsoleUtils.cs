@@ -5,44 +5,73 @@ using System.Web;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 
-#if (REVIT2013 || REVIT2014)
-using Autodesk.Revit.UI.Selection;
-#endif
-
 namespace PyRevitLabs.PyRevit.Runtime {
     public class ScriptConsoleUtils {
-        public static void ProcessUrl(UIApplication uiApp, string inputUrl) {
+        public static void ProcessUrl(UIApplication uiApp, string inputUrl, ScriptConsole output = null) {
+            inputUrl = HttpUtility.HtmlDecode(inputUrl ?? string.Empty);
+            if (!inputUrl.Contains("?"))
+                return;
+
             var parsedQuery = HttpUtility.ParseQueryString(inputUrl.Split('?')[1]);
 
             if (parsedQuery["command"] == "select" && parsedQuery["element[]"] != null) {
                 var idList = new List<ElementId>();
                 foreach (string strId in parsedQuery["element[]"].Split(',')) {
-#if !(REVIT2017 || REVIT2018 || REVIT2019 || REVIT2020 || REVIT2021 || REVIT2022 || REVIT2023)
+#if !(REVIT2021 || REVIT2022 || REVIT2023)
                     idList.Add(new ElementId(Convert.ToInt64(strId)));
 #else
                     idList.Add(new ElementId(Convert.ToInt32(strId)));
 #endif
                 }
 
-                SelectElements(uiApp, idList, parsedQuery.AllKeys.Contains("show") && parsedQuery["show"] == "true");
+                SelectElements(
+                    uiApp,
+                    idList,
+                    parsedQuery.AllKeys.Contains("show") && parsedQuery["show"] == "true",
+                    parsedQuery.AllKeys.Contains("append") && parsedQuery["append"] == "true"
+                    );
+            }
+            else if (parsedQuery["command"] == "button" && parsedQuery["controlid"] != null) {
+                ExecuteRibbonButton(parsedQuery["controlid"]);
+            }
+            else if (parsedQuery["command"] == "print" && output != null) {
+                var message = parsedQuery["message"] ?? parsedQuery["amp;message"] ?? string.Empty;
+                output.Dispatcher.BeginInvoke(
+                    new Action(() => {
+                        output.AppendHtmlFragment(
+                            message,
+                            ScriptConsoleConfigs.DefaultBlock
+                            );
+                        output.ForceRenderFrame();
+                    }),
+                    System.Windows.Threading.DispatcherPriority.Background);
             }
         }
 
-        public static void SelectElements(UIApplication uiApp, List<ElementId> elementIds, bool show) {
+        public static void SelectElements(UIApplication uiApp, List<ElementId> elementIds, bool show, bool append = false) {
             var uidoc = uiApp.ActiveUIDocument;
 
             if (uidoc != null) {
                 var doc = uiApp.ActiveUIDocument.Document;
+                var validElementIds = new List<ElementId>();
+
+                foreach (var elementId in elementIds) {
+                    if (doc.GetElement(elementId) != null)
+                        validElementIds.Add(elementId);
+                }
+
+                if (validElementIds.Count == 0)
+                    return;
 
                 // is there is only one element and it has owner view
                 // open the view, isolate the element, zoom fit the view, unisolate
                 // this would zoom in on that element only
-                if (doc != null && elementIds.Count >= 1) {
+                if (doc != null && show) {
                     // get all open ui views, to be able to zoom later on
                     var openUIViews = uidoc.GetOpenUIViews();
 
                     // get the first one
-                    var el = doc.GetElement(elementIds[0]);
+                    var el = doc.GetElement(validElementIds[0]);
 
                     // if element is a view, open the view
                     Type elType = el.GetType();
@@ -54,7 +83,7 @@ namespace PyRevitLabs.PyRevit.Runtime {
                     else if (el.OwnerViewId != ElementId.InvalidElementId) {
                         // if all 2D elements are in the same view
                         bool sameOwnerView = true;
-                        foreach (var elid in elementIds)
+                        foreach (var elid in validElementIds)
                             if (doc.GetElement(elid).OwnerViewId != el.OwnerViewId)
                                 sameOwnerView = false;
 
@@ -66,7 +95,7 @@ namespace PyRevitLabs.PyRevit.Runtime {
                             // islolate the element, deselect, and zoom fit
                             // add host elements for tags since tags will not be visible without their host
                             var elementIdsToIsolate = new List<ElementId>();
-                            foreach (var elid in elementIds) {
+                            foreach (var elid in validElementIds) {
                                 var element = doc.GetElement(elid);
 #if REVIT2022_OR_GREATER
                                 if (element.GetType() == typeof(IndependentTag)) {
@@ -75,7 +104,7 @@ namespace PyRevitLabs.PyRevit.Runtime {
                                         elementIdsToIsolate.Add(hostId);
                                 }
 #else
-                                    if (element.GetType() == typeof(IndependentTag)) {
+                                if (element.GetType() == typeof(IndependentTag)) {
                                     var hostId = ((IndependentTag)element).TaggedLocalElementId;
                                     if (hostId != ElementId.InvalidElementId)
                                         elementIdsToIsolate.Add(hostId);
@@ -83,7 +112,7 @@ namespace PyRevitLabs.PyRevit.Runtime {
 #endif
                             }
 
-                            elementIdsToIsolate.AddRange(elementIds);
+                            elementIdsToIsolate.AddRange(validElementIds);
                             // islolate the element, deselect, and zoom fit
                             if (show)
                                 uidoc.ShowElements(elementIdsToIsolate);
@@ -97,28 +126,37 @@ namespace PyRevitLabs.PyRevit.Runtime {
 
                         // islolate the element, deselect, and zoom fit
                         if (show)
-                            uidoc.ShowElements(elementIds);
+                            uidoc.ShowElements(validElementIds);
                     }
 
                 }
 
                 // now select the element(s)
+                // when appending, merge with whatever is already selected
+                // instead of replacing the current selection
 
-#if (REVIT2013 || REVIT2014)
-                var elementSet = SelElementSet.Create();
-                foreach (ElementId elId in elementIds) {
-                    var element = doc.GetElement(elId);
-                    if (element != null)
-                        elementSet.Add(element);
+                var finalSelectionIds = validElementIds;
+                if (append) {
+                    var combinedIds = new HashSet<ElementId>(uidoc.Selection.GetElementIds());
+                    combinedIds.UnionWith(validElementIds);
+                    finalSelectionIds = combinedIds.ToList();
                 }
 
-                uidoc.Selection.Elements = elementSet;
-#else
-                uidoc.Selection.SetElementIds(elementIds);
-#endif
+                uidoc.Selection.SetElementIds(finalSelectionIds);
 
             }
 
+        }
+
+        public static void ExecuteRibbonButton(string controlId) {
+            var ribbon = Autodesk.Windows.ComponentManager.Ribbon as UIFramework.RevitRibbonControl;
+            var ribbonItem = ribbon?.findRibbonItem(controlId, false);
+            if (ribbonItem == null)
+                return;
+
+            var executeMethod = ribbonItem.GetType().GetMethod("Execute", Type.EmptyTypes);
+            if (executeMethod != null)
+                executeMethod.Invoke(ribbonItem, null);
         }
     }
 }

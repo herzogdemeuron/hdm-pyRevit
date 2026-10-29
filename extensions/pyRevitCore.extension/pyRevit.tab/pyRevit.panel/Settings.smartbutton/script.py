@@ -5,7 +5,7 @@ import os
 import os.path as op
 import re
 
-from pyrevit import HOST_APP, EXEC_PARAMS
+from pyrevit import HOST_APP, EXEC_PARAMS, HOME_DIR
 from pyrevit.compat import NETCORE
 from pyrevit.framework import System, Windows, Controls, Documents
 from pyrevit.runtime.types import EventType, EventUtils
@@ -28,6 +28,7 @@ import pyrevitcore_globals
 
 logger = script.get_logger()
 available_revit_versions = [
+    "2027",
     "2026",
     "2025",
     "2024",
@@ -86,8 +87,45 @@ class RevitVersionCB:
         self.IsEnabled = is_enabled  # Whether the checkbox is enabled
 
 
+def _get_agent_pipe_name():
+    """Return the agent host's pipe name when it runs in this Revit, else None."""
+    try:
+        from PyRevitLabs.PyRevit.Runtime.Agent import AgentHost
+
+        return AgentHost.PipeName if AgentHost.IsRunning else None
+    except Exception as agent_err:
+        logger.debug("Agent host status unavailable | %s", agent_err)
+        return None
+
+
+def _run_pyrevit_cli(arguments):
+    """Run this clone's pyrevit CLI and return (exit code, combined output).
+
+    Uses the clone's own bin/pyrevit.exe, so the MCP server a client registers
+    belongs to the pyRevit that is loaded in this Revit.
+    """
+    cli_path = op.join(HOME_DIR, "bin", "pyrevit.exe")
+    if not op.isfile(cli_path):
+        return -1, "pyRevit CLI not found at {}".format(cli_path)
+
+    start_info = System.Diagnostics.ProcessStartInfo(cli_path)
+    start_info.Arguments = " ".join(arguments)
+    start_info.UseShellExecute = False
+    start_info.CreateNoWindow = True
+    start_info.RedirectStandardOutput = True
+    start_info.RedirectStandardError = True
+    process = System.Diagnostics.Process.Start(start_info)
+    stdout_task = process.StandardOutput.ReadToEndAsync()
+    stderr_task = process.StandardError.ReadToEndAsync()
+    process.WaitForExit()
+    output_text = stdout_task.Result + stderr_task.Result
+    return process.ExitCode, output_text.strip()
+
+
 class SettingsWindow(forms.WPFWindow):
     """pyRevit Settings window that handles setting the pyRevit configs"""
+
+    resolve_theme = True
 
     def __init__(self, xaml_file_name):
         """Sets up the settings ui"""
@@ -120,6 +158,7 @@ class SettingsWindow(forms.WPFWindow):
 
         self._setup_uiux()
         self._setup_routes()
+        self._setup_agent()
         self._setup_telemetry()
         self._setup_addinfiles()
 
@@ -156,6 +195,8 @@ class SettingsWindow(forms.WPFWindow):
         self.minhostdrivefreespace_tb.Text = str(user_config.min_host_drivefreespace)
 
         self.loadbetatools_cb.IsChecked = user_config.load_beta
+
+        self.read_script_metadata_cb.IsChecked = user_config.read_script_metadata
 
         self.minimize_consoles_cb.IsChecked = user_config.output_close_others
 
@@ -235,7 +276,10 @@ class SettingsWindow(forms.WPFWindow):
     def _setup_env_vars_list(self):
         """Reads the pyRevit environment variables and updates the list"""
         env_vars_list = [
-            EnvVariable(k, v) for k, v in sorted(envvars.get_pyrevit_env_vars().items())
+            EnvVariable(k, v)
+            for k, v in sorted(
+                envvars.get_pyrevit_env_vars().items(), key=lambda kv: str(kv[0])
+            )
         ]
 
         self.envvars_lb.ItemsSource = env_vars_list
@@ -402,6 +446,50 @@ class SettingsWindow(forms.WPFWindow):
                 user_config.routes_port,
             )
 
+    def _setup_agent(self):
+        self._agent_enabled_at_open = PyRevit.PyRevitConfigs.GetAgentEnabled()
+        self.agent_cb.IsChecked = self._agent_enabled_at_open
+        policy = PyRevit.PyRevitConfigs.GetAgentPolicy()
+        self.agent_policy_readonly_rb.IsChecked = policy == "readonly"
+        self.agent_policy_auto_rb.IsChecked = policy == "auto"
+        self.agent_policy_ask_rb.IsChecked = policy not in ("readonly", "auto")
+        cpython = PyRevit.PyRevitConfigs.GetAgentEngine() == "cpython"
+        self.agent_engine_cpython_rb.IsChecked = cpython
+        self.agent_engine_ironpython_rb.IsChecked = not cpython
+
+        pipe_name = _get_agent_pipe_name()
+        if pipe_name:
+            self.update_status_lights(
+                {
+                    "status": "pass",
+                    "message": self.get_locale_string("Agent.Running").format(
+                        pipe_name
+                    ),
+                },
+                self.agent_statusbox,
+                self.agent_statusmsg,
+            )
+        else:
+            self.agent_statusbox.Background = self.Resources["pyRevitDarkBrush"]
+            self.agent_statusmsg.Text = self.get_locale_string("Agent.NotRunning")
+
+    def agent_install_client(self, sender, args):
+        """Register the pyRevit MCP server with the MCP client named by the button tag."""
+        client = sender.Tag
+        exit_code, output_text = _run_pyrevit_cli(["mcp", "install", client])
+        if exit_code == 0:
+            forms.alert(
+                self.get_locale_string("Agent.InstallDone").format(sender.Content),
+                sub_msg=output_text,
+                warn_icon=False,
+            )
+            self.agent_cb.IsChecked = True
+        else:
+            forms.alert(
+                self.get_locale_string("Agent.InstallFailed").format(sender.Content),
+                sub_msg=output_text,
+            )
+
     def _setup_telemetry(self):
         """Reads the pyRevit telemetry config and updates the ui"""
         self._setup_event_telemetry_checkboxes()
@@ -468,9 +556,10 @@ class SettingsWindow(forms.WPFWindow):
         return str(version) == EXEC_PARAMS.engine_ver
 
     def update_addinfiles(self):
-        """Enables/Disables the adding files for different Revit versions."""
-        # update active engine
-        attachment = user_config.get_current_attachment()
+        """Enables/Disables the addin files for different Revit versions."""
+        # read fresh: this attachment is rewritten below, so a value cached
+        # before an out-of-process change must not be written back
+        attachment = user_config.get_current_attachment(cached=False)
         if attachment:
             # if attachment is for all users dont attempt at making changes
             # user probably does not have write access and this fails
@@ -796,7 +885,6 @@ class SettingsWindow(forms.WPFWindow):
         # current project tab style
         prj_tabstyle = self.project_tabstyle_cb.SelectedItem
         if prj_tabstyle:
-
             # reset all
             for tab_ctrl in prj_tab_ctrls:
                 tab_ctrl.Style = self.Resources["revitTab"]
@@ -811,7 +899,6 @@ class SettingsWindow(forms.WPFWindow):
         # current project tab style
         family_tabstyle = self.family_tabstyle_cb.SelectedItem
         if family_tabstyle:
-
             # reset all
             for tab_ctrl in family_tab_ctrls:
                 tab_ctrl.Style = self.Resources["revitTab"]
@@ -857,11 +944,28 @@ class SettingsWindow(forms.WPFWindow):
 
         user_config.load_beta = self.loadbetatools_cb.IsChecked
 
+        metadata_setting_changed = (
+            self.read_script_metadata_cb.IsChecked != user_config.read_script_metadata
+        )
+        user_config.read_script_metadata = self.read_script_metadata_cb.IsChecked
+
         user_config.output_close_others = self.minimize_consoles_cb.IsChecked
         if self.closewindows_current_rb.IsChecked:
             user_config.output_close_mode_enum = PyRevit.OutputCloseMode.CurrentCommand
         else:
             user_config.output_close_mode_enum = PyRevit.OutputCloseMode.CloseAll
+
+        if self.reload_requested:
+            return False
+        if metadata_setting_changed:
+            return forms.alert(
+                self.get_locale_string(
+                    "CoreSettings.Loader.ReadScriptMetadata.Changed"
+                ),
+                yes=True,
+                no=True,
+            )
+        return False
 
     def _save_engines(self):
         # set active cpython engine
@@ -948,6 +1052,26 @@ class SettingsWindow(forms.WPFWindow):
 
         return request_reload
 
+    def _save_agent(self):
+        request_reload = False
+        enabled = bool(self.agent_cb.IsChecked)
+        if enabled != self._agent_enabled_at_open:
+            request_reload = forms.alert(
+                self.get_locale_string("Agent.Changed"), yes=True, no=True
+            )
+
+        PyRevit.PyRevitConfigs.SetAgentEnabled(enabled)
+        if self.agent_policy_readonly_rb.IsChecked:
+            PyRevit.PyRevitConfigs.SetAgentPolicy("readonly")
+        elif self.agent_policy_auto_rb.IsChecked:
+            PyRevit.PyRevitConfigs.SetAgentPolicy("auto")
+        else:
+            PyRevit.PyRevitConfigs.SetAgentPolicy("ask")
+        PyRevit.PyRevitConfigs.SetAgentEngine(
+            "cpython" if self.agent_engine_cpython_rb.IsChecked else "ironpython"
+        )
+        return request_reload
+
     def _save_telemetry(self):
         # set telemetry configs
         # pyrevit telemetry
@@ -992,6 +1116,7 @@ class SettingsWindow(forms.WPFWindow):
         )
         self.reload_requested = self._save_uiux() or self.reload_requested
         self.reload_requested = self._save_routes() or self.reload_requested
+        self.reload_requested = self._save_agent() or self.reload_requested
         self.reload_requested = self._save_telemetry() or self.reload_requested
 
         # save all new values into config file
@@ -1022,7 +1147,7 @@ def __selfinit__(script_cmp, ui_button_cmp, __rvt__):
 # windows explorer
 # otherwise, will show the Settings user interface
 if __name__ == "__main__":
-    if __shiftclick__:  # pylint: disable=E0602
+    if EXEC_PARAMS.config_mode:
         script.show_file_in_explorer(user_config.config_file)
     elif user_config.is_readonly:
         forms.alert("pyRevit settings are set by your admin.", exitscript=True)

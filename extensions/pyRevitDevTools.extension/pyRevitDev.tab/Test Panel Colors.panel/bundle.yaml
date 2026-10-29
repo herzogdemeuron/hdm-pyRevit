@@ -1,3 +1,12 @@
+title:
+  en_us: Test Panel Colors
+  ko: 패널 색상 테스트
+  fr_fr: Couleurs du panneau de test
+  ru: Цвета тестовой панели
+  chinese_s: 测试面板颜色
+  es_es: Colores del panel de prueba
+  de_de: Test-Panel-Farben
+  pt_br: Testar Cores do Painel
 layout:
   - ButtonA
   - ">>>"
@@ -7,3 +16,7 @@ background:
   title: '#E2A000'
   panel: '#BB005591'
   slideout: '#E25200'
+background_dark:
+  title: '#7A5600'
+  panel: '#1E3A5F'
+  slideout: '#7A2C00'

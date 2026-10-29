@@ -1,10 +1,5 @@
 """Prints calculated hash values for each extension."""
-#pylint: disable=import-error,invalid-name,broad-except,superfluous-parens
-
-
-__title__ = 'Open\nPanel'
-__context__ = 'zero-doc'
-
+# pylint: disable=import-error,invalid-name,broad-except,superfluous-parens
 
 from pyrevit import forms
 

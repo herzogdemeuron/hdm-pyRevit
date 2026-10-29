@@ -1,4 +1,14 @@
+title:
+  en_us: Test Panel Background
+  ko: 패널 배경 테스트
+  fr_fr: Arrière-plan du panneau de test
+  ru: Фон тестовой панели
+  chinese_s: 测试面板背景
+  es_es: Fondo del panel de prueba
+  de_de: Test-Panel-Hintergrund
+  pt_br: Testar Fundo do Painel
 layout:
   - ButtonA
 
 background: '#BB005591'
+background_dark: '#BB1E3A5F'

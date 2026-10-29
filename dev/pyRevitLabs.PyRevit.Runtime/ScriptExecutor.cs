@@ -31,11 +31,24 @@ namespace PyRevitLabs.PyRevit.Runtime {
 
         public void Execute(UIApplication uiApp) {
             if (ScriptData != null && ScriptRuntimeConfigs != null) {
-                // provide the given uiapp
-                ScriptRuntimeConfigs.UIApp = uiApp;
+                try {
+                    // provide the given uiapp
+                    ScriptRuntimeConfigs.UIApp = uiApp;
 
-                // request execution and set results
-                Result = ScriptExecutor.ExecuteScript(ScriptData, ScriptRuntimeConfigs);
+                    // request execution and set results
+                    Result = ScriptExecutor.ExecuteScript(ScriptData, ScriptRuntimeConfigs);
+                }
+                finally {
+                    // release the executed script's references; this handler lives
+                    // for the whole process and would otherwise pin the previous
+                    // session's runtime objects (UIApp, documents) across reloads.
+                    // NOTE: these fields are a singleton and not thread-safe. A
+                    // concurrent non-blocking RequestExecuteScript can overwrite a
+                    // pending script before Execute() fires for it; this is a
+                    // pre-existing limitation of the single-handler design.
+                    ScriptData = null;
+                    ScriptRuntimeConfigs = null;
+                }
             }
         }
 
@@ -56,10 +69,32 @@ namespace PyRevitLabs.PyRevit.Runtime {
         private static ExternalEvent extExecEvent;
 
         public static void Initialize() {
+            // Idempotent on purpose. The ExternalEvent is scoped to the add-in
+            // lifetime (the loader stays registered for the whole Revit process),
+            // not to a pyRevit session, so the same event remains valid across
+            // reloads and is reused instead of recreated. Reusing it avoids
+            // leaking an undisposed ExternalEvent + handler on every reload
+            // (Revit holds a strong reference to the handler) and avoids breaking
+            // an in-flight RequestExecuteScript. Both the python and c# session
+            // managers call Initialize() during a single load, so the early
+            // return also collapses that double call.
+            // NOTE: assemblies load into the default (non-collectible)
+            // AssemblyLoadContext, so there is no per-session context to pin or
+            // unload here; revisit this if pyRevit ever adopts collectible load
+            // contexts, where disposing the old event on reload would matter.
+            // The check-then-create below is intentionally unlocked: both call
+            // sites run on the Revit main thread during init, so there is no
+            // concurrent entry to guard against.
+            if (extExecEvent != null)
+                return;
+
             mainThreadId = Thread.CurrentThread.ManagedThreadId;
             extExecEventHandler = new ScriptExecutorExternalEventHandler();
             extExecEvent = ExternalEvent.Create(extExecEventHandler);
         }
+
+        internal static bool IsOnMainThread =>
+            mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == mainThreadId;
 
         /// Run the script and print the output to a new output window.
         public static int ExecuteScript(ScriptData scriptData, ScriptRuntimeConfigs scriptRuntimeCfg, ScriptExecutorConfigs scriptExecConfigs = null) {
@@ -74,6 +109,14 @@ namespace PyRevitLabs.PyRevit.Runtime {
             }
 
             return ScriptExecutorResultCodes.ExecutorNotInitialized;
+        }
+
+        /// <summary>
+        /// Executes a script from a Revit API callback that is already authorized to run synchronously.
+        /// </summary>
+        internal static int ExecuteScriptInApiContext(ScriptData scriptData, ScriptRuntimeConfigs scriptRuntimeCfg, ScriptExecutorConfigs scriptExecConfigs = null) {
+            scriptExecConfigs = scriptExecConfigs ?? new ScriptExecutorConfigs();
+            return ExecuteScriptNow(scriptData, scriptRuntimeCfg, scriptExecConfigs);
         }
 
         private static int ExecuteScriptNow(ScriptData scriptData, ScriptRuntimeConfigs scriptRuntimeCfg, ScriptExecutorConfigs scriptExecConfigs) {
@@ -136,6 +179,16 @@ namespace PyRevitLabs.PyRevit.Runtime {
             if (scriptExecConfigs.SendTelemetry)
                 ScriptTelemetry.LogScriptTelemetryRecord(ref runtime);
 
+            // Drain any output still buffered by the engine (trailing prints,
+            // logger records, uncaught tracebacks) to the live window before the
+            // runtime and its window references are torn down below.
+            try {
+                runtime.OutputStream.Flush();
+            }
+            catch {
+                // output rendering must never break command teardown
+            }
+
             // GC cleanups
             var re = runtime.ExecutionResult;
             runtime.Dispose();
@@ -185,15 +238,24 @@ namespace PyRevitLabs.PyRevit.Runtime {
             // and ask for an engine (EngineManager return either new engine or an already active one)
             T engine = ScriptEngineManager.GetEngine<T>(ref runtime);
 
-            // init the engine
-            engine.Start(ref runtime);
-            // execute
-            var result = engine.Execute(ref runtime);
-            // stop and cleanup the engine
-            engine.Stop(ref runtime);
+            ScriptEngineManager.EnterEngine(engine.TypeId);
+            try {
+                // init the engine
+                using (LoadTimeline.Active?.StartSpan(engine.RecoveredFromCache ? "cached engine" : "new engine"))
+                    engine.Start(ref runtime);
+                // execute
+                int result;
+                using (LoadTimeline.Active?.StartSpan("execute"))
+                    result = engine.Execute(ref runtime);
+                // stop and cleanup the engine
+                engine.Stop(ref runtime);
 
-            // set result
-            runtime.ExecutionResult = result;
+                // set result
+                runtime.ExecutionResult = result;
+            }
+            finally {
+                ScriptEngineManager.ExitEngine(engine.TypeId);
+            }
         }
     }
 }

@@ -1,9 +1,8 @@
 """Test standard input in pyRevit console window."""
 # pylint: disable-all
-__context__ = 'zero-doc'
-__fullframeengine__ = True
 
 import sys
+
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
 
@@ -16,7 +15,7 @@ print("Enter anything:")
 print(sys.stdin.read())
 
 # test raw_input in py2
-if PY2: 
+if PY2:
     m = raw_input("Enter raw input (py2):")
     print(m)
 
@@ -30,4 +29,3 @@ if PY2:
 else:
     m = input("Enter string:")
     print(m)
-

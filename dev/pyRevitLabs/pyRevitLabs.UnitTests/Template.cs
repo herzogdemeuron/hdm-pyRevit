@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -8,8 +8,6 @@ using pyRevitLabs.Common;
 namespace pyRevitLabs.UnitTests {
     [TestClass]
     public class TemplateUnitTest {
-        private TestContext _testContextInstance;
-
         public virtual string TempPath { get; }
 
         [AssemblyInitialize()]
@@ -44,10 +42,6 @@ namespace pyRevitLabs.UnitTests {
         [AssemblyCleanup()]
         public static void AssemblyCleanup() { }
 
-
-        public TestContext TestContext {
-            get { return _testContextInstance; }
-            set { _testContextInstance = value; }
-        }
+        public TestContext TestContext { get; set; }
     }
 }

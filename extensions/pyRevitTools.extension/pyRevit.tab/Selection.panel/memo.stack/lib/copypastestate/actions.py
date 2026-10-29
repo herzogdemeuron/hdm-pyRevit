@@ -4,7 +4,7 @@
 import math
 
 from pyrevit import PyRevitException
-from pyrevit import revit, DB
+from pyrevit import revit, DB, EXEC_PARAMS
 from pyrevit.framework import List
 from pyrevit.coreutils import logger
 from pyrevit.coreutils import moduleutils
@@ -579,7 +579,7 @@ class ViewportPlacementAction(basetypes.CopyPasteStateAction):
 
         viewports = revit.get_selection().include(DB.Viewport)
         align_axis = None
-        if __shiftclick__:  # pylint: disable=undefined-variable
+        if EXEC_PARAMS.config_mode:
             align_axis = forms.CommandSwitchWindow.show(
                 ["X", "Y", "XY"], message="Align specific axis?"
             )
@@ -685,8 +685,10 @@ class FilterOverridesAction(basetypes.CopyPasteStateAction):
             view_template = view.Document.GetElement(view.ViewTemplateId)
             non_controlled_params = view_template.GetNonControlledTemplateParameterIds()
             # check if filters are controlled by template
-            if DB.ElementId(DB.BuiltInParameter.VIS_GRAPHICS_FILTERS) \
-                    not in non_controlled_params:
+            if (
+                DB.ElementId(DB.BuiltInParameter.VIS_GRAPHICS_FILTERS)
+                not in non_controlled_params
+            ):
                 return True
         return False
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
@@ -28,13 +28,17 @@ namespace pyRevitCLI {
         PrintLocalRevits(bool running = false) {
             if (running) {
                 PyRevitCLIAppCmds.PrintHeader("Running Revit Instances");
-                foreach (var revit in RevitController.ListRunningRevits().OrderByDescending(x => x.RevitProduct.Version))
-                    Console.WriteLine(revit);
+                foreach (var revit in RevitController.ListRunningRevits().OrderByDescending(x => x.RevitProduct?.Version ?? new Version(0, 0))) {
+                    var line = revit.ToString();
+                    global::System.Console.WriteLine(line);
+                }
             }
             else {
                 PyRevitCLIAppCmds.PrintHeader("Installed Revits");
-                foreach (var revit in RevitProduct.ListInstalledProducts().OrderByDescending(x => x.Version))
-                    Console.WriteLine(revit);
+                foreach (var revit in RevitProduct.ListInstalledProducts().OrderByDescending(x => x.Version)) {
+                    var line = revit.ToString();
+                    global::System.Console.WriteLine(line);
+                }
             }
         }
 
@@ -49,7 +53,7 @@ namespace pyRevitCLI {
 
         internal static void
         ProcessFileInfo(string targetPath, string outputCSV,
-                        bool IncludeRVT=true, bool includeRTE=false, bool includeRFA=false, bool includeRFT=false) {
+                        bool IncludeRVT = true, bool includeRTE = false, bool includeRFA = false, bool includeRFT = false) {
             // if targetpath is a single model print the model info
             if (File.Exists(targetPath))
                 if (outputCSV != null)
@@ -81,7 +85,7 @@ namespace pyRevitCLI {
                 logger.Info(string.Format("Searching for revit files under \"{0}\"", targetPath));
                 FileAttributes attr = File.GetAttributes(targetPath);
                 if ((attr & FileAttributes.Directory) == FileAttributes.Directory) {
-                    foreach(string searchPattern in fileSearchPatterns) {
+                    foreach (string searchPattern in fileSearchPatterns) {
                         var files = Directory.EnumerateFiles(targetPath, searchPattern, SearchOption.AllDirectories);
                         logger.Info(string.Format(" {0} revit files found under \"{1}\"", files.Count(), targetPath));
                         foreach (var file in files) {
@@ -136,7 +140,7 @@ namespace pyRevitCLI {
         ListAvailableCommands() {
             foreach (PyRevitClone clone in PyRevitClones.GetRegisteredClones()) {
                 PyRevitCLIAppCmds.PrintHeader($"Commands in Clone \"{clone.Name}\"");
-                foreach ( PyRevitExtension ext in clone.GetExtensions()) {
+                foreach (PyRevitExtension ext in clone.GetExtensions()) {
                     if (ext.Type == PyRevitExtensionTypes.UIExtension) {
                         foreach (PyRevitRunnerCommand cmd in ext.GetCommands())
                             Console.WriteLine(cmd);
@@ -172,12 +176,12 @@ namespace pyRevitCLI {
                 foreach (var modelPath in File.ReadAllLines(targetFile))
                     modelFiles.Add(modelPath);
             }
-            // otherwise just work on this model
-            else
+            // otherwise just work on this model (if provided)
+            else if (!string.IsNullOrWhiteSpace(targetFile))
                 modelFiles.Add(targetFile);
 
 
-            // verify all models are accessible
+            // verify all models are accessible (only if models were provided)
             foreach (string modelFile in modelFiles)
                 if (!CommonUtils.VerifyFile(modelFile))
                     throw new Exception($"Model does not exist at \"{modelFile}\"");
@@ -210,7 +214,7 @@ namespace pyRevitCLI {
                 }
 
                 // if could not determine revit version from given files,
-                // use latest version
+                // use latest version (or specified version if provided)
                 if (revitYearNumber == 0)
                     revitYearNumber = RevitProduct.ListInstalledProducts().Max(r => r.ProductYear);
             }
@@ -325,7 +329,7 @@ namespace pyRevitCLI {
 
             // print project information properties
             Console.WriteLine("Project Information (Properties):");
-            foreach(var item in model.ProjectInfoProperties.OrderBy(x => x.Key)) {
+            foreach (var item in model.ProjectInfoProperties.OrderBy(x => x.Key)) {
                 Console.WriteLine("\t{0} = {1}", item.Key, item.Value.ToEscaped());
             }
 

@@ -1,8 +1,33 @@
-﻿using System;
+/*
+   ██▓███▓██   ██▓ ██▀███  ▓█████ ██▒   █▓ ██▓▄▄▄█████▓
+  ▓██░  ██▒██  ██▒▓██ ▒ ██▒▓█   ▀▓██░   █▒▓██▒▓  ██▒ ▓▒
+  ▓██░ ██▓▒▒██ ██░▓██ ░▄█ ▒▒███   ▓██  █▒░▒██▒▒ ▓██░ ▒░
+  ▒██▄█▓▒ ▒░ ▐██▓░▒██▀▀█▄  ▒▓█  ▄  ▒██ █░░░██░░ ▓██▓ ░
+  ▒██▒ ░  ░░ ██▒▓░░██▓ ▒██▒░▒████▒  ▒▀█░  ░██░  ▒██▒ ░
+  ▒▓▒░ ░  ░ ██▒▒▒ ░ ▒▓ ░▒▓░░░ ▒░ ░  ░ ▐░  ░▓    ▒ ░░
+  ░▒ ░    ▓██ ░▒░   ░▒ ░ ▒░ ░ ░  ░  ░ ░░   ▒ ░    ░
+  ░░      ▒ ▒ ░░    ░░   ░    ░       ░░   ▒ ░  ░
+          ░ ░        ░        ░  ░     ░   ░
+          ░ ░                         ░
+
+  This is the entry point for pyRevit. Revit loads the PyRevitLoader.dll addon
+  at startup, and PyRevitLoaderApplication.OnStartup calls into the C# session
+  manager to build the UI and the button commands.
+ */
+
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Events;
+using pyRevitAssemblyBuilder.AssemblyMaker;
+using pyRevitAssemblyBuilder.SessionManager;
+using pyRevitAssemblyBuilder.UIManager;
+using pyRevitExtensionParser;
+using pyRevitLabs.Common;
+using System;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using Autodesk.Revit.UI;
-using Autodesk.Revit.Attributes;
+using System.Runtime.CompilerServices;
 
 /* Note:
  * It is necessary that this code object do not have any references to IronPython.
@@ -17,22 +42,71 @@ namespace PyRevitLoader
     class PyRevitLoaderApplication : IExternalApplication
     {
         public static string LoaderPath => Path.GetDirectoryName(typeof(PyRevitLoaderApplication).Assembly.Location);
+        private static UIControlledApplication _uiControlledApplication;
+        private static UIApplication _uiApplication;
+        private static RevitThemeChangeMonitor _themeChangeMonitor;
+        private static bool _themeRefreshPending;
+        private static bool _pendingDarkTheme;
+
+        private static UIApplication GetUIApplication(UIControlledApplication application)
+        {
+            var fi = application.GetType().GetField(
+                RevitApiConstants.MODERN_UIAPP_FIELD, BindingFlags.NonPublic | BindingFlags.Instance);
+
+            if (fi == null)
+            {
+                throw new InvalidOperationException(
+                    $"Could not find field '{RevitApiConstants.MODERN_UIAPP_FIELD}' on type " +
+                    $"'{application.GetType().FullName}'. The Revit API internal implementation may have changed in this version.");
+            }
+
+            return (UIApplication)fi.GetValue(application);
+        }
 
         // Hook into Revit to allow starting a command.
         Result IExternalApplication.OnStartup(UIControlledApplication application)
         {
+            var startupTimestamp = Stopwatch.GetTimestamp();
+            var processUptimeMilliseconds = GetProcessUptimeMilliseconds();
+            _uiControlledApplication = application;
             LoadAssembliesInFolder(LoaderPath);
-            // We need to also looad dlls from two folders up
+            // We also need to load dlls from two folders up
             var commonFolder = Path.GetDirectoryName(Path.GetDirectoryName(LoaderPath));
             LoadAssembliesInFolder(commonFolder);
+            var assembliesLoadedTimestamp = Stopwatch.GetTimestamp();
 
             try
             {
-                return ExecuteStartupScript(application);
+                var uiApplication = GetUIApplication(application);
+                _uiApplication = uiApplication;
+                _themeChangeMonitor = new RevitThemeChangeMonitor(
+                    uiApplication,
+                    ServiceFactory.CreateLogger(),
+                    OnRevitThemeChanged);
+                _themeChangeMonitor.Start();
+
+                // Load the session directly through the C# session manager. The Python
+                // pre/post-load services are driven from within LoadSession, so Revit
+                // startup no longer bootstraps an IronPython engine to reach the loader.
+                var result = LoadSessionInternal(
+                    firstLoad: true,
+                    startTimestamp: startupTimestamp,
+                    assembliesLoadedTimestamp: assembliesLoadedTimestamp,
+                    processUptimeMilliseconds: processUptimeMilliseconds);
+                if (result == Result.Succeeded)
+                {
+                    _themeChangeMonitor.SetSessionReady();
+                }
+                else
+                {
+                    DisposeThemeChangeMonitor();
+                }
+                return result;
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("Error Loading Startup Script", ex.ToString());
+                DisposeThemeChangeMonitor();
+                TaskDialog.Show("Error Loading pyRevit Session", ex.ToString());
                 return Result.Failed;
             }
         }
@@ -47,45 +121,121 @@ namespace PyRevitLoader
                 {
                     Assembly.LoadFrom(engineDll);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    // Log assembly load failures - some assemblies may fail to load and that's acceptable
+                    Trace.WriteLine($"Failed to load assembly '{engineDll}': {ex.Message}");
                 }
             }
         }
 
-        private static Result ExecuteStartupScript(UIControlledApplication uiControlledApplication)
-        {
-            // we need a UIApplication object to assign as `__revit__` in python...
-            var versionNumber = uiControlledApplication.ControlledApplication.VersionNumber;
-            var fieldName = int.Parse(versionNumber) >= 2017 ? "m_uiapplication" : "m_application";
-            var fi = uiControlledApplication.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+        // Reload entry invoked by the Python session manager via reflection
+        // (GetMethod("LoadSession")). Must stay the only static method named LoadSession
+        // so that lookup remains unambiguous. A reload is never the first load.
+        public static Result LoadSession() => LoadSessionInternal(firstLoad: false, startTimestamp: Stopwatch.GetTimestamp());
 
-            var uiApplication = (UIApplication)fi.GetValue(uiControlledApplication);
-            // execute StartupScript
-            Result result = Result.Succeeded;
-            var startupScript = GetStartupScriptPath();
-            if (startupScript != null)
+        // Shared entry for initial startup and reload. The C# SessionManagerService
+        // drives the full load, including the residual Python pre/post-load services.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static Result LoadSessionInternal(
+            bool firstLoad,
+            long startTimestamp,
+            long? assembliesLoadedTimestamp = null,
+            double? processUptimeMilliseconds = null)
+        {
+            var timeline = LoadTimeline.Begin(firstLoad ? "pyRevit startup" : "pyRevit reload", startTimestamp);
+            timeline.ProcessUptimeAtStartMilliseconds = processUptimeMilliseconds;
+            if (assembliesLoadedTimestamp.HasValue)
+                timeline.RecordSpan("LoadAssembliesInFolder", startTimestamp, assembliesLoadedTimestamp.Value);
+
+            try
             {
-                var executor = new ScriptExecutor(uiApplication); // uiControlledApplication);
-                result = executor.ExecuteScript(startupScript);
-                if (result == Result.Failed)
+                if (_uiControlledApplication == null)
                 {
-                    TaskDialog.Show("Error Loading pyRevit", executor.Message);
+                    throw new InvalidOperationException("UIControlledApplication not available." +
+                        " LoadSession can only be called after OnStartup.");
                 }
-            }
 
-            return result;
+                var uiApplication = GetUIApplication(_uiControlledApplication);
+                var revitVersion = _uiControlledApplication.ControlledApplication.VersionNumber;
+
+                var sessionManager = ServiceFactory.CreateSessionManagerService(
+                    revitVersion,
+                    AssemblyBuildStrategy.Roslyn,
+                    uiApplication);
+
+                sessionManager.LoadSession(firstLoad);
+
+                return Result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("Error Loading pyRevit Session",
+                    $"An error occurred while loading the pyRevit session:\n\n{ex.Message}\n\n" +
+                    $"Check the output window for details.");
+                return Result.Failed;
+            }
+            finally
+            {
+                timeline.End();
+            }
         }
 
-        private static string GetStartupScriptPath()
+        private static double? GetProcessUptimeMilliseconds()
         {
-            var loaderDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            var dllDir = Path.GetDirectoryName(loaderDir);
-            return Path.Combine(dllDir, string.Format("{0}.py", Assembly.GetExecutingAssembly().GetName().Name));
+            try
+            {
+                using (var process = Process.GetCurrentProcess())
+                    return (DateTime.Now - process.StartTime).TotalMilliseconds;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        private static void OnRevitThemeChanged(string themeName)
+        {
+            if (_uiApplication == null)
+                return;
+
+            _pendingDarkTheme = string.Equals(themeName, "Dark", StringComparison.OrdinalIgnoreCase);
+            if (_themeRefreshPending)
+                return;
+
+            _themeRefreshPending = true;
+            _uiApplication.Idling -= RefreshThemeOnIdling;
+            _uiApplication.Idling += RefreshThemeOnIdling;
+        }
+
+        private static void RefreshThemeOnIdling(object sender, IdlingEventArgs eventArgs)
+        {
+            if (_uiApplication != null)
+            {
+                _uiApplication.Idling -= RefreshThemeOnIdling;
+            }
+
+            _themeRefreshPending = false;
+            RibbonThemeRegistry.RefreshAll(_pendingDarkTheme);
+        }
+
+        private static void DisposeThemeChangeMonitor()
+        {
+            if (_uiApplication != null)
+            {
+                _uiApplication.Idling -= RefreshThemeOnIdling;
+            }
+
+            _themeRefreshPending = false;
+            RibbonThemeRegistry.Clear();
+            _themeChangeMonitor?.Dispose();
+            _themeChangeMonitor = null;
+            _uiApplication = null;
         }
 
         Result IExternalApplication.OnShutdown(UIControlledApplication application)
         {
+            DisposeThemeChangeMonitor();
             // FIXME: deallocate the python shell...
             return Result.Succeeded;
         }

@@ -1,10 +1,32 @@
 # -*- coding: UTF-8 -*-
 
-""" Counting functions for Revit elements. """
+"""Counting functions for Revit elements."""
+
+import re
 
 from pyrevit import DB
 from pyrevit.compat import get_elementid_value_func
 import pyrevit.revit.db.query as q
+
+# fmt: off
+_COPY_SUFFIXES = {
+    "Copy",
+    "Copie",
+    "Kopie",
+    "Copia",
+    "Kopia",
+    "Kopi",
+    "Kopio",
+    u"\u041a\u043e\u043f\u0438\u044f",
+    u"\u30b3\u30d4\u30fc",
+    u"\u526f\u672c",  # Chinese Simplified
+    u"\ubcf5\uc0ac\ubcf8",
+    u"M\xe1solat",
+}
+# fmt: on
+_COPY_PATTERN = re.compile(
+    r"\s+(" + "|".join(re.escape(s) for s in _COPY_SUFFIXES) + r")\s+\d+$"
+)
 
 
 def count_unpinned_revit_links(revitlinks_elements):
@@ -75,21 +97,18 @@ def count_analytical_model_activated(document):
 
 def count_copied_views(views_set):
     """
-    Returns the number of views in the given set that have "Copy" or "Copie" in their name.
-
+    Returns the number of views in the given set that have a locale-specific
+    Revit copy suffix in their name.
     Args:
-    views_set (set): A set of views to check for copied views. Defaults to None.
-
+        views_set (set): A set of views to check for copied views.
     Returns:
-    int: The number of views in the set that have "Copy" or "Copie" in their name.
+        int: The number of views whose name contains a known copy suffix.
     """
-    copied_view_names = ["Copy", "Copie"]
     copied_views_count = 0
     for view in views_set:
         view_name = q.get_name(view)
         try:
-            # FIXME French compatibility, make it universal
-            if any(name in view_name for name in copied_view_names):
+            if _COPY_PATTERN.search(view_name):
                 copied_views_count += 1
         except Exception as e:
             print(e)
@@ -108,7 +127,9 @@ def count_unused_view_templates(views_list, document):
     """
     if views_list is None:
         return 0
-    applied_templates = [v.ViewTemplateId for v in views_list if hasattr(v, "ViewTemplateId")]
+    applied_templates = [
+        v.ViewTemplateId for v in views_list if hasattr(v, "ViewTemplateId")
+    ]
     view_templates_list = q.get_all_view_templates(doc=document)
     unused_view_templates = []
     for v in view_templates_list:
@@ -134,7 +155,10 @@ def count_unused_filters_in_views(view_list, filters):
     for flt in filters:
         all_filters.add(get_elementid_value(flt.Id))
     for v in view_list:
-        if hasattr(v, "AreGraphicsOverridesAllowed") and v.AreGraphicsOverridesAllowed():
+        if (
+            hasattr(v, "AreGraphicsOverridesAllowed")
+            and v.AreGraphicsOverridesAllowed()
+        ):
             view_filters = v.GetFilters()
             for filter_id in view_filters:
                 used_filters_set.add(get_elementid_value(filter_id))
@@ -334,10 +358,10 @@ def count_revision_clouds(document):
 def count_groups(doc):
     """
     Counts the instances and types of model and detail groups in a Revit document, excluding array members.
-    
+
     Args:
         doc (DB.Document): The Revit document to process.
-    
+
     Returns:
         tuple: A tuple containing four integers:
             - model_group_instances_count (int): The count of model group instances.
@@ -345,31 +369,55 @@ def count_groups(doc):
             - detail_group_instances_count (int): The count of detail group instances.
             - detail_group_types_count (int): The count of detail group types.
     """
-    arrays_members_collector = DB.FilteredElementCollector(doc).OfCategory(DB.BuiltInCategory.OST_IOSArrays).ToElements()
+    arrays_members_collector = (
+        DB.FilteredElementCollector(doc)
+        .OfCategory(DB.BuiltInCategory.OST_IOSArrays)
+        .ToElements()
+    )
     arraysmembers = set()
     for array in arrays_members_collector:
         if array.OwnerViewId != DB.ElementId.InvalidElementId:
             arraysmembers.update(array.GetOriginalMemberIds())
             arraysmembers.update(array.GetCopiedMemberIds())
 
-    arrays_grouptype_members = set(doc.GetElement(array).GetTypeId() for array in arraysmembers)
+    arrays_grouptype_members = set(
+        doc.GetElement(array).GetTypeId() for array in arraysmembers
+    )
 
-
-    model_groups = DB.FilteredElementCollector(doc).OfCategory(DB.BuiltInCategory.OST_IOSModelGroups).ToElements()
+    model_groups = (
+        DB.FilteredElementCollector(doc)
+        .OfCategory(DB.BuiltInCategory.OST_IOSModelGroups)
+        .ToElements()
+    )
     model_group_instances_count = 0
     model_group_types_count = 0
     for model_group in model_groups:
-        if type(model_group) is DB.GroupType and model_group.Id not in arrays_grouptype_members:
+        if (
+            type(model_group) is DB.GroupType
+            and model_group.Id not in arrays_grouptype_members
+        ):
             model_group_types_count += 1
         elif type(model_group) is DB.Group and model_group.Id not in arraysmembers:
             model_group_instances_count += 1
 
-    detail_groups = DB.FilteredElementCollector(doc).OfCategory(DB.BuiltInCategory.OST_IOSDetailGroups).ToElements()
+    detail_groups = (
+        DB.FilteredElementCollector(doc)
+        .OfCategory(DB.BuiltInCategory.OST_IOSDetailGroups)
+        .ToElements()
+    )
     detail_group_instances_count = 0
     detail_group_types_count = 0
     for detail_group in detail_groups:
-        if type(detail_group) is DB.GroupType and detail_group.Id not in arrays_grouptype_members:
+        if (
+            type(detail_group) is DB.GroupType
+            and detail_group.Id not in arrays_grouptype_members
+        ):
             detail_group_types_count += 1
         elif type(detail_group) is DB.Group and detail_group.Id not in arraysmembers:
             detail_group_instances_count += 1
-    return model_group_instances_count, model_group_types_count, detail_group_instances_count, detail_group_types_count
+    return (
+        model_group_instances_count,
+        model_group_types_count,
+        detail_group_instances_count,
+        detail_group_types_count,
+    )

@@ -1,0 +1,616 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "pyrevit/7.0.0.26278+2233": {
+        "dependencies": {
+          "Colorful.Console": "1.2.15",
+          "docopt.net": "0.8.3",
+          "pyRevitLabs.Common": "7.0.0.26278",
+          "pyRevitLabs.CommonCLI": "7.0.0.26278",
+          "pyRevitLabs.Language": "7.0.0.26278",
+          "pyRevitLabs.PyRevit": "7.0.0.26278",
+          "pyRevitLabs.TargetApps.Revit": "7.0.0.26278",
+          "pyRevitLabs.Json": "13.0.0.0",
+          "pyRevitLabs.NLog": "5.0.0.0"
+        },
+        "runtime": {
+          "pyrevit.dll": {}
+        }
+      },
+      "Colorful.Console/1.2.15": {
+        "runtime": {
+          "lib/netstandard2.0/Colorful.Console.dll": {
+            "assemblyVersion": "1.2.15.0",
+            "fileVersion": "1.2.15.0"
+          }
+        }
+      },
+      "docopt.net/0.8.3": {
+        "runtime": {
+          "lib/netstandard2.1/DocoptNet.dll": {
+            "assemblyVersion": "0.8.3.0",
+            "fileVersion": "0.8.3.0"
+          }
+        }
+      },
+      "DotNetVersionFinder/2.1.1": {
+        "runtime": {
+          "lib/net7.0/DotNetVersionFinder.dll": {
+            "assemblyVersion": "2.1.1.0",
+            "fileVersion": "2.1.1.0"
+          }
+        }
+      },
+      "ini-parser-netstandard/2.5.2": {
+        "runtime": {
+          "lib/netstandard2.0/INIFileParser.dll": {
+            "assemblyVersion": "2.5.2.0",
+            "fileVersion": "2.5.2.0"
+          }
+        }
+      },
+      "LibGit2Sharp/0.31.0": {
+        "dependencies": {
+          "LibGit2Sharp.NativeBinaries": "2.0.323"
+        },
+        "runtime": {
+          "lib/net8.0/LibGit2Sharp.dll": {
+            "assemblyVersion": "0.31.0.0",
+            "fileVersion": "0.31.0.0"
+          }
+        }
+      },
+      "LibGit2Sharp.NativeBinaries/2.0.323": {
+        "runtimeTargets": {
+          "runtimes/linux-arm/native/libgit2-3f4182d.so": {
+            "rid": "linux-arm",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-arm64/native/libgit2-3f4182d.so": {
+            "rid": "linux-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-musl-arm/native/libgit2-3f4182d.so": {
+            "rid": "linux-musl-arm",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-musl-arm64/native/libgit2-3f4182d.so": {
+            "rid": "linux-musl-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-musl-x64/native/libgit2-3f4182d.so": {
+            "rid": "linux-musl-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-ppc64le/native/libgit2-3f4182d.so": {
+            "rid": "linux-ppc64le",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/linux-x64/native/libgit2-3f4182d.so": {
+            "rid": "linux-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-arm64/native/libgit2-3f4182d.dylib": {
+            "rid": "osx-arm64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libgit2-3f4182d.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-arm64/native/git2-3f4182d.dll": {
+            "rid": "win-arm64",
+            "assetType": "native",
+            "fileVersion": "1.8.4.0"
+          },
+          "runtimes/win-x64/native/git2-3f4182d.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "1.8.4.0"
+          },
+          "runtimes/win-x86/native/git2-3f4182d.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "1.8.4.0"
+          }
+        }
+      },
+      "MadMilkman.Ini.Unofficial/1.0.1": {
+        "runtime": {
+          "lib/netcoreapp3.0/MadMilkman.Ini.dll": {
+            "assemblyVersion": "1.0.1.0",
+            "fileVersion": "1.0.1.0"
+          }
+        }
+      },
+      "Microsoft.CodeAnalysis.Common/4.11.0": {
+        "runtime": {
+          "lib/net8.0/Microsoft.CodeAnalysis.dll": {
+            "assemblyVersion": "4.11.0.0",
+            "fileVersion": "4.1100.24.37604"
+          }
+        },
+        "resources": {
+          "lib/net8.0/cs/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "cs"
+          },
+          "lib/net8.0/de/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "de"
+          },
+          "lib/net8.0/es/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "es"
+          },
+          "lib/net8.0/fr/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "fr"
+          },
+          "lib/net8.0/it/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "it"
+          },
+          "lib/net8.0/ja/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "ja"
+          },
+          "lib/net8.0/ko/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "ko"
+          },
+          "lib/net8.0/pl/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "pl"
+          },
+          "lib/net8.0/pt-BR/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "pt-BR"
+          },
+          "lib/net8.0/ru/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "ru"
+          },
+          "lib/net8.0/tr/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "tr"
+          },
+          "lib/net8.0/zh-Hans/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "zh-Hans"
+          },
+          "lib/net8.0/zh-Hant/Microsoft.CodeAnalysis.resources.dll": {
+            "locale": "zh-Hant"
+          }
+        }
+      },
+      "Microsoft.CodeAnalysis.CSharp/4.11.0": {
+        "dependencies": {
+          "Microsoft.CodeAnalysis.Common": "4.11.0"
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.CodeAnalysis.CSharp.dll": {
+            "assemblyVersion": "4.11.0.0",
+            "fileVersion": "4.1100.24.37604"
+          }
+        },
+        "resources": {
+          "lib/net8.0/cs/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "cs"
+          },
+          "lib/net8.0/de/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "de"
+          },
+          "lib/net8.0/es/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "es"
+          },
+          "lib/net8.0/fr/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "fr"
+          },
+          "lib/net8.0/it/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "it"
+          },
+          "lib/net8.0/ja/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "ja"
+          },
+          "lib/net8.0/ko/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "ko"
+          },
+          "lib/net8.0/pl/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "pl"
+          },
+          "lib/net8.0/pt-BR/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "pt-BR"
+          },
+          "lib/net8.0/ru/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "ru"
+          },
+          "lib/net8.0/tr/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "tr"
+          },
+          "lib/net8.0/zh-Hans/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "zh-Hans"
+          },
+          "lib/net8.0/zh-Hant/Microsoft.CodeAnalysis.CSharp.resources.dll": {
+            "locale": "zh-Hant"
+          }
+        }
+      },
+      "Microsoft.CodeAnalysis.VisualBasic/4.11.0": {
+        "dependencies": {
+          "Microsoft.CodeAnalysis.Common": "4.11.0"
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.CodeAnalysis.VisualBasic.dll": {
+            "assemblyVersion": "4.11.0.0",
+            "fileVersion": "4.1100.24.37604"
+          }
+        },
+        "resources": {
+          "lib/net8.0/cs/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "cs"
+          },
+          "lib/net8.0/de/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "de"
+          },
+          "lib/net8.0/es/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "es"
+          },
+          "lib/net8.0/fr/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "fr"
+          },
+          "lib/net8.0/it/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "it"
+          },
+          "lib/net8.0/ja/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "ja"
+          },
+          "lib/net8.0/ko/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "ko"
+          },
+          "lib/net8.0/pl/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "pl"
+          },
+          "lib/net8.0/pt-BR/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "pt-BR"
+          },
+          "lib/net8.0/ru/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "ru"
+          },
+          "lib/net8.0/tr/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "tr"
+          },
+          "lib/net8.0/zh-Hans/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "zh-Hans"
+          },
+          "lib/net8.0/zh-Hant/Microsoft.CodeAnalysis.VisualBasic.resources.dll": {
+            "locale": "zh-Hant"
+          }
+        }
+      },
+      "Nett/0.15.0": {
+        "runtime": {
+          "lib/netstandard2.0/Nett.dll": {
+            "assemblyVersion": "0.15.0.0",
+            "fileVersion": "0.15.0.0"
+          }
+        }
+      },
+      "OpenMcdf/3.1.4": {
+        "runtime": {
+          "lib/net8.0/OpenMcdf.dll": {
+            "assemblyVersion": "3.1.4.0",
+            "fileVersion": "3.1.4.0"
+          }
+        }
+      },
+      "System.CodeDom/10.0.5": {
+        "runtime": {
+          "lib/net8.0/System.CodeDom.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.526.15411"
+          }
+        }
+      },
+      "System.Management/10.0.5": {
+        "dependencies": {
+          "System.CodeDom": "10.0.5"
+        },
+        "runtime": {
+          "lib/net8.0/System.Management.dll": {
+            "assemblyVersion": "10.0.0.5",
+            "fileVersion": "10.0.526.15411"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/win/lib/net8.0/System.Management.dll": {
+            "rid": "win",
+            "assetType": "runtime",
+            "assemblyVersion": "10.0.0.5",
+            "fileVersion": "10.0.526.15411"
+          }
+        }
+      },
+      "YamlDotNet/16.3.0": {
+        "runtime": {
+          "lib/net8.0/YamlDotNet.dll": {
+            "assemblyVersion": "16.0.0.0",
+            "fileVersion": "16.3.0.0"
+          }
+        }
+      },
+      "pyRevitLabs.Common/7.0.0.26278": {
+        "dependencies": {
+          "DotNetVersionFinder": "2.1.1",
+          "LibGit2Sharp": "0.31.0",
+          "MadMilkman.Ini.Unofficial": "1.0.1",
+          "Microsoft.CodeAnalysis.CSharp": "4.11.0",
+          "Microsoft.CodeAnalysis.VisualBasic": "4.11.0",
+          "OpenMcdf": "3.1.4",
+          "System.Management": "10.0.5",
+          "YamlDotNet": "16.3.0"
+        },
+        "runtime": {
+          "pyRevitLabs.Common.dll": {
+            "assemblyVersion": "7.0.0.26278",
+            "fileVersion": "7.0.0.26278"
+          }
+        }
+      },
+      "pyRevitLabs.CommonCLI/7.0.0.26278": {
+        "runtime": {
+          "pyRevitLabs.CommonCLI.dll": {
+            "assemblyVersion": "7.0.0.26278",
+            "fileVersion": "7.0.0.26278"
+          }
+        }
+      },
+      "pyRevitLabs.CommonWPF/7.0.0.26278": {
+        "runtime": {
+          "pyRevitLabs.CommonWPF.dll": {
+            "assemblyVersion": "7.0.0.26278",
+            "fileVersion": "7.0.0.26278"
+          }
+        }
+      },
+      "pyRevitLabs.Configurations/7.0.0.26278": {
+        "runtime": {
+          "pyRevitLabs.Configurations.dll": {
+            "assemblyVersion": "7.0.0.26278",
+            "fileVersion": "7.0.0.26278"
+          }
+        }
+      },
+      "pyRevitLabs.Configurations.Ini/7.0.0.26278": {
+        "dependencies": {
+          "ini-parser-netstandard": "2.5.2",
+          "pyRevitLabs.Common": "7.0.0.26278",
+          "pyRevitLabs.Configurations": "7.0.0.26278"
+        },
+        "runtime": {
+          "pyRevitLabs.Configurations.Ini.dll": {
+            "assemblyVersion": "7.0.0.26278",
+            "fileVersion": "7.0.0.26278"
+          }
+        }
+      },
+      "pyRevitLabs.Language/7.0.0.26278": {
+        "runtime": {
+          "pyRevitLabs.Language.dll": {
+            "assemblyVersion": "7.0.0.26278",
+            "fileVersion": "7.0.0.26278"
+          }
+        }
+      },
+      "pyRevitLabs.PyRevit/7.0.0.26278": {
+        "dependencies": {
+          "LibGit2Sharp": "0.31.0",
+          "Nett": "0.15.0",
+          "pyRevitLabs.Common": "7.0.0.26278",
+          "pyRevitLabs.CommonWPF": "7.0.0.26278",
+          "pyRevitLabs.Configurations": "7.0.0.26278",
+          "pyRevitLabs.Configurations.Ini": "7.0.0.26278",
+          "pyRevitLabs.TargetApps.Revit": "7.0.0.26278"
+        },
+        "runtime": {
+          "pyRevitLabs.PyRevit.dll": {
+            "assemblyVersion": "7.0.0.26278",
+            "fileVersion": "7.0.0.26278"
+          }
+        }
+      },
+      "pyRevitLabs.TargetApps.Revit/7.0.0.26278": {
+        "dependencies": {
+          "MadMilkman.Ini.Unofficial": "1.0.1",
+          "pyRevitLabs.Common": "7.0.0.26278"
+        },
+        "runtime": {
+          "pyRevitLabs.TargetApps.Revit.dll": {
+            "assemblyVersion": "7.0.0.26278",
+            "fileVersion": "7.0.0.26278"
+          }
+        }
+      },
+      "pyRevitLabs.Json/13.0.0.0": {
+        "runtime": {
+          "pyRevitLabs.Json.dll": {
+            "assemblyVersion": "13.0.0.0",
+            "fileVersion": "13.0.3.0"
+          }
+        }
+      },
+      "pyRevitLabs.NLog/5.0.0.0": {
+        "runtime": {
+          "pyRevitLabs.NLog.dll": {
+            "assemblyVersion": "5.0.0.0",
+            "fileVersion": "5.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "pyrevit/7.0.0.26278+2233": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Colorful.Console/1.2.15": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-iDBG+0MHkVzM/p74WsfSpcNP2hL7E3o+8Y5ZEEbWQuYmRtHh/YXdbfEnvusTS2Ds8+KX17NGvuNOgTfBxXLCEw==",
+      "path": "colorful.console/1.2.15",
+      "hashPath": "colorful.console.1.2.15.nupkg.sha512"
+    },
+    "docopt.net/0.8.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Ev2Q5lOhr2Ee+MGi9zu7f/g5ry5RU3EyoyjHE03TvjZjjDtDysaPhNjiTy0DyW9HTttxCs6XKJLpcjXnGpWOpA==",
+      "path": "docopt.net/0.8.3",
+      "hashPath": "docopt.net.0.8.3.nupkg.sha512"
+    },
+    "DotNetVersionFinder/2.1.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-YmCa7QYEqFUzb3cLC4h9e+k+DTu1OM5JnlCgifw1Le44WGcs8lHrYKoTZx5GRfXPMl+3ClvyurGuIfY8fu4WLQ==",
+      "path": "dotnetversionfinder/2.1.1",
+      "hashPath": "dotnetversionfinder.2.1.1.nupkg.sha512"
+    },
+    "ini-parser-netstandard/2.5.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-rTyGzgT/a+mD2HxopOGpb/yWWhu5TTPgF59XUlHjhlNv7dbt9DME/qozIR7HreVAVpNnZSqP9A8TeViK5s949g==",
+      "path": "ini-parser-netstandard/2.5.2",
+      "hashPath": "ini-parser-netstandard.2.5.2.nupkg.sha512"
+    },
+    "LibGit2Sharp/0.31.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-b3+UfV7LjKMjAHWwl7VawejiOv2gJIC6dTCA/S0puLTHACAA/Oeb5JJmWUQMeyH/T/WR/LaIK8bk2RbdFnrZvg==",
+      "path": "libgit2sharp/0.31.0",
+      "hashPath": "libgit2sharp.0.31.0.nupkg.sha512"
+    },
+    "LibGit2Sharp.NativeBinaries/2.0.323": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Kg+fJGWhGj5qRXG0Ilj4ddhuodGXZg57yhfX6OVUDR0M2DKg/UR42/d74+qv5l1qotc1qJilo/ho7xQnULP6yA==",
+      "path": "libgit2sharp.nativebinaries/2.0.323",
+      "hashPath": "libgit2sharp.nativebinaries.2.0.323.nupkg.sha512"
+    },
+    "MadMilkman.Ini.Unofficial/1.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-zrYrMYh46S0DIqLg19QjU6amHlvmM36ItcNPaUX12VYODBWdtxWVdtcP4WRszBrbnj0t49y1T3JcRtHbwZu5JA==",
+      "path": "madmilkman.ini.unofficial/1.0.1",
+      "hashPath": "madmilkman.ini.unofficial.1.0.1.nupkg.sha512"
+    },
+    "Microsoft.CodeAnalysis.Common/4.11.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-djf8ujmqYImFgB04UGtcsEhHrzVqzHowS+EEl/Yunc5LdrYrZhGBWUTXoCF0NzYXJxtfuD+UVQarWpvrNc94Qg==",
+      "path": "microsoft.codeanalysis.common/4.11.0",
+      "hashPath": "microsoft.codeanalysis.common.4.11.0.nupkg.sha512"
+    },
+    "Microsoft.CodeAnalysis.CSharp/4.11.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-6XYi2EusI8JT4y2l/F3VVVS+ISoIX9nqHsZRaG6W5aFeJ5BEuBosHfT/ABb73FN0RZ1Z3cj2j7cL28SToJPXOw==",
+      "path": "microsoft.codeanalysis.csharp/4.11.0",
+      "hashPath": "microsoft.codeanalysis.csharp.4.11.0.nupkg.sha512"
+    },
+    "Microsoft.CodeAnalysis.VisualBasic/4.11.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-1ypssIzZvsDtzyN8tFqZdKS8cl7MAQQ6eBjHGCJ9paLNlmnBd2kCo1GRr8kO0yWaFN/Io2JXaTeeHRDZLiKKyw==",
+      "path": "microsoft.codeanalysis.visualbasic/4.11.0",
+      "hashPath": "microsoft.codeanalysis.visualbasic.4.11.0.nupkg.sha512"
+    },
+    "Nett/0.15.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-/0SoN9ugPKfmLndtKy3gaRxOlzji94/yrNgQLe45/1ZgExj0BaVozbXD+oWD8E6MCLvTs+YWzmn315mQOXGCcw==",
+      "path": "nett/0.15.0",
+      "hashPath": "nett.0.15.0.nupkg.sha512"
+    },
+    "OpenMcdf/3.1.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ncchtCh9YKqutHTlUCrr1llXA65ijGOCjXBM0mL1+WaGouApWDEACWbBHGzuYcAvB+rgW6IgO4AKgmZ2v1moNA==",
+      "path": "openmcdf/3.1.4",
+      "hashPath": "openmcdf.3.1.4.nupkg.sha512"
+    },
+    "System.CodeDom/10.0.5": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-hGZWDDJh1U6t7fy3iO4HlZYK1ur1fWE3sTqTNHkHk0Leh0JUcxYM//JtLBNG5g+6D2Lt0+aHH8rc7e5oIlNgCg==",
+      "path": "system.codedom/10.0.5",
+      "hashPath": "system.codedom.10.0.5.nupkg.sha512"
+    },
+    "System.Management/10.0.5": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-JhBVxvWhUJ0KAquUK0dMnc3a1Ol4JyH8fMrMQZ9GgEUkrtvPy8DE57SDnGnuvOdI0maJOdguxw87N5bh2eL87A==",
+      "path": "system.management/10.0.5",
+      "hashPath": "system.management.10.0.5.nupkg.sha512"
+    },
+    "YamlDotNet/16.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-SgMOdxbz8X65z8hraIs6hOEdnkH6hESTAIUa7viEngHOYaH+6q5XJmwr1+yb9vJpNQ19hCQY69xbFsLtXpobQA==",
+      "path": "yamldotnet/16.3.0",
+      "hashPath": "yamldotnet.16.3.0.nupkg.sha512"
+    },
+    "pyRevitLabs.Common/7.0.0.26278": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "pyRevitLabs.CommonCLI/7.0.0.26278": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "pyRevitLabs.CommonWPF/7.0.0.26278": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "pyRevitLabs.Configurations/7.0.0.26278": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "pyRevitLabs.Configurations.Ini/7.0.0.26278": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "pyRevitLabs.Language/7.0.0.26278": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "pyRevitLabs.PyRevit/7.0.0.26278": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "pyRevitLabs.TargetApps.Revit/7.0.0.26278": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "pyRevitLabs.Json/13.0.0.0": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "pyRevitLabs.NLog/5.0.0.0": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

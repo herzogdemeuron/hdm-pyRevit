@@ -2,13 +2,14 @@
 selected elements in the active view.
 
 Shift-Click: select in whole project"""
-#pylint: disable=import-error,invalid-name,broad-except,superfluous-parens
-from pyrevit import revit, DB
+
+# pylint: disable=import-error,invalid-name,broad-except,superfluous-parens
+from pyrevit import revit, DB, EXEC_PARAMS
 from pyrevit import forms
 from pyrevit.framework import List
 
 
-if not __shiftclick__:
+if not EXEC_PARAMS.config_mode:
     # ensure active view is a graphical view
     forms.check_graphicalview(revit.active_view, exitscript=True)
 
@@ -28,13 +29,13 @@ if not sel_cat_ids:
 mc_filter = DB.ElementMulticategoryFilter(List[DB.ElementId](sel_cat_ids))
 
 # collect from whole model
-if __shiftclick__:
-    cl = DB.FilteredElementCollector(revit.doc)\
-        .WhereElementIsNotElementType()
+if EXEC_PARAMS.config_mode:
+    cl = DB.FilteredElementCollector(revit.doc).WhereElementIsNotElementType()
 # collect from a view
 else:
-    cl = DB.FilteredElementCollector(revit.doc, revit.active_view.Id)\
-        .WhereElementIsNotElementType()
+    cl = DB.FilteredElementCollector(
+        revit.doc, revit.active_view.Id
+    ).WhereElementIsNotElementType()
 
 match_list = cl.WherePasses(mc_filter).ToElementIds()
 

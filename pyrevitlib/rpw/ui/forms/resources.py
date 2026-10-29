@@ -2,7 +2,6 @@
 Consolidate all imports and resources for other forms based classes to use.
 
 """  #
-
 import sys
 
 from abc import ABCMeta
@@ -12,6 +11,7 @@ import clr
 import os.path as op
 from pyrevit.compat import PY3, PY2
 import pyrevit.engine as eng
+from pyrevit import dedupe_sys_path
 
 # WPF/Form Imports
 clr.AddReference("PresentationFramework")  # System.Windows: Controls, ?
@@ -24,7 +24,10 @@ from System.Windows import Window
 from System.IO import StringReader
 
 # Console
-from System.Environment import Exit, NewLine
+from System import Environment
+
+Exit = Environment.Exit
+NewLine = Environment.NewLine
 from System.Drawing import FontFamily
 from System.Windows.Input import Key
 
@@ -42,10 +45,9 @@ ASSEMBLY_FILE_EXT = '.dll'
 ipy_assmname = '{prefix}IronPython'.format(prefix=eng.EnginePrefix)
 ipy_dllpath = op.join(eng.EnginePath, ipy_assmname + ASSEMBLY_FILE_EXT)
 if PY3:
-    clr.AddReference(ipy_dllpath)
+    clr.AddReference(ipy_assmname)
 else:
     clr.AddReferenceToFileAndPath(ipy_dllpath)
-
 import IronPython
 
 # WPF
@@ -60,4 +62,9 @@ try:
         import wpf
 except Exception:
     clr.AddReferenceToFileAndPath(wpf_dllpath)
-    import wpf
+    if PY3:
+        wpf = IronPython.Modules.Wpf
+    else:
+        import wpf
+
+dedupe_sys_path()

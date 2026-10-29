@@ -11,19 +11,14 @@ extensions/*
 !extensions/extensions.json
 !extensions/README.md
 !extensions/pyRevitBundlesCreatorExtension.extension/
-#bin/*
-#!bin/engines
-#!bin/pyrevit.svg
-#!bin/pyrevit_outputwindow.png
-#!bin/pyrevit_settings.png
-#!bin/pyrevit-hosts.json
-#!bin/pyrevit-products.json
+# HdM: bin/ is tracked because the fork is rolled out via git
+# (upstream ignores it and ships binaries as release assets)
 
 # ignore visual studio files
 **/.vs
 **/.suo
 **/obj
-**/packages
+dev/**/packages
 **/dev/**/bin
 **/dev/pyRevitLabs/TestResults/
 
@@ -42,6 +37,9 @@ Icon?
 
 # ignore local config file
 *.ini
+# but not the configurations project and tests
+!dev/pyRevitLabs/pyRevitLabs.Configurations.Ini/
+!dev/pyRevitLabs/tests/**/Fixtures/*.ini
 
 # Release and installer files
 release/pyrevit*cache
@@ -61,7 +59,26 @@ dist/
 site/
 *.pdb
 *.deps.json
+!bin/**/*.deps.json
 bin/**/*.xml
 *.so
 *.a
 *.dylib
+
+# claude
+.claude
+.vscode/settings.json
+
+# build bin (modular pipelines)
+build/bin/*
+build/obj/*
+build/tests/bin/*
+build/tests/obj/*
+ci-stamped/
+ci-bin-manifest.json
+
+# local-only build overrides (never shipped)
+build/appsettings.Development.json
+
+# Python virtualenv created by pipenv (PIPENV_VENV_IN_PROJECT)
+.venv/

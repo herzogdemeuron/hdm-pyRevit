@@ -8,6 +8,8 @@ using Autodesk.Revit.ApplicationServices;
 
 using pyRevitLabs.Common;
 using pyRevitLabs.PyRevit;
+using pyRevitLabs.Json.Linq;
+using pyRevitLabs.NLog;
 
 namespace PyRevitLabs.PyRevit.Runtime {
     public enum ScriptRuntimeType {
@@ -17,6 +19,7 @@ namespace PyRevitLabs.PyRevit.Runtime {
 
     public class ScriptRuntimeConfigs : IDisposable {
         private object _eventSender = null;
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         public ControlledApplication ControlledApp { get; set; }
         public Application App { get; set; }
@@ -28,6 +31,9 @@ namespace PyRevitLabs.PyRevit.Runtime {
 
         public List<string> SearchPaths { get; set; }
         public List<string> Arguments { get; set; }
+        public IDictionary<string, object> Variables { get; set; }
+        public string LogFilePath { get; set; }
+        public bool SuppressOutput { get; set; }
 
         public object EventSender {
             get { return _eventSender; }
@@ -54,24 +60,39 @@ namespace PyRevitLabs.PyRevit.Runtime {
         public bool DebugMode;
         public bool ExecutedFromUI;
 
+        /// <summary>
+        /// When set, the engine cache key (<see cref="ScriptEngine.TypeId"/>) ignores
+        /// <see cref="ScriptData.CommandExtension"/> so every caller that opts in shares one
+        /// engine for the lifetime of the current session load, instead of each getting its own.
+        /// Used by the C# session loader for its own trusted entry/startup scripts; regular
+        /// command execution never sets this and keeps today's per-extension engine caching.
+        /// </summary>
+        public bool SharedSessionEngine;
+
         public void Dispose() {
             CommandData = null;
             SelectedElements = null;
             SearchPaths = null;
             Arguments = null;
+            Variables = null;
+            LogFilePath = null;
+            SuppressOutput = false;
             EventSender = null;
             EventArgs = null;
         }
     }
 
     public class ScriptRuntime : IDisposable {
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+
         // app handles
         private UIApplication _uiApp = null;
         private Application _app = null;
 
-        // output window and stream
+        // output stream
         private WeakReference<ScriptConsole> _scriptOutput = new WeakReference<ScriptConsole>(null);
         private WeakReference<ScriptIO> _outputStream = new WeakReference<ScriptIO>(null);
+        private ScriptOutput _outputService;
 
         // dict for command result data
         private Dictionary<string, string> _resultsDict = null;
@@ -80,6 +101,8 @@ namespace PyRevitLabs.PyRevit.Runtime {
             // setup a new id and timestamp
             ExecId = CommonUtils.NewShortUUID();
             ExecTimestamp = Telemetry.GetTelemetryTimeStamp();
+
+            ScriptOutputUi.CaptureHostUiThread();
 
             // set data
             ScriptData = scriptData;
@@ -112,13 +135,29 @@ namespace PyRevitLabs.PyRevit.Runtime {
                     App = (Application)ScriptRuntimeConfigs.EventSender;
             }
 
+            RevitAppResolver.SeedSessionUIApplication(
+                ScriptRuntimeConfigs.CommandData != null
+                    ? ScriptRuntimeConfigs.CommandData.Application
+                    : ScriptRuntimeConfigs.UIApp);
+
             // prepare results
             ExecutionResult = ScriptExecutorResultCodes.Succeeded;
             TraceMessage = string.Empty;
+            _outputService = ScriptOutput.GetForRuntime(this);
         }
 
         public ScriptData ScriptData { get; private set; }
         public ScriptRuntimeConfigs ScriptRuntimeConfigs { get; private set; }
+        public bool IsDisposed { get; private set; }
+        public ScriptLoggerService LoggerService =>
+            ScriptLoggerService.GetForRuntime(this);
+        public ScriptOutput OutputService {
+            get {
+                if (_outputService == null)
+                    _outputService = ScriptOutput.GetForRuntime(this);
+                return _outputService;
+            }
+        }
 
         // target script
         public string ScriptSourceFile {
@@ -148,6 +187,10 @@ namespace PyRevitLabs.PyRevit.Runtime {
         public ScriptEngineType EngineType {
             get {
                 // determine engine necessary to run this script
+                var engineTypeFromConfig = GetEngineTypeFromConfigs();
+                if (engineTypeFromConfig != null)
+                    return engineTypeFromConfig.Value;
+
 
                 if (PyRevitScript.IsType(ScriptSourceFile, PyRevitScriptTypes.Python)) {
                     string firstLine = "";
@@ -203,6 +246,47 @@ namespace PyRevitLabs.PyRevit.Runtime {
             }
         }
 
+        private ScriptEngineType? GetEngineTypeFromConfigs() {
+            // Parse engine configs JSON to extract explicit engine type
+            // Format: {"type":"CPython",...} or {"type":"IronPython",...}
+            try {
+                if (string.IsNullOrEmpty(ScriptRuntimeConfigs?.EngineConfigs))
+                    return null;
+
+                // Parse JSON using pyRevitLabs.Json (Newtonsoft.Json fork)
+                var json = JObject.Parse(ScriptRuntimeConfigs.EngineConfigs);
+                var engineTypeName = json["type"]?.Value<string>();
+
+                if (string.IsNullOrEmpty(engineTypeName))
+                    return null;
+
+                // Only honor Python engine overrides for Python scripts
+                if (!PyRevitScript.IsType(ScriptSourceFile, PyRevitScriptTypes.Python))
+                    return null;
+
+                // Map string to ScriptEngineType enum
+                if (engineTypeName.Equals("CPython", StringComparison.OrdinalIgnoreCase))
+                    return ScriptEngineType.CPython;
+
+                if (engineTypeName.Equals("IronPython", StringComparison.OrdinalIgnoreCase)) {
+                    // Backward-compat: older command generators always injected
+                    // "type":"IronPython" even when user did not explicitly set it.
+                    // In that case, allow runtime shebang detection to pick engine.
+                    var typeExplicit = json["type_explicit"]?.Value<bool?>() ?? false;
+                    if (!typeExplicit)
+                        return null;
+
+                    return ScriptEngineType.IronPython;
+                }
+
+                return null;
+            }
+            catch (Exception ex) {
+                logger.Error(ex, "Failed to parse engine configs JSON: {0}", ScriptRuntimeConfigs.EngineConfigs);
+                return null;
+            }
+        }
+
         public string EngineVersion {
             get {
                 switch (EngineType) {
@@ -251,8 +335,9 @@ namespace PyRevitLabs.PyRevit.Runtime {
         // revit
         public string DocumentName {
             get {
-                if (UIApp != null && UIApp.ActiveUIDocument != null)
-                    return UIApp.ActiveUIDocument.Document.Title;
+                var uidoc = ActiveUIDocument;
+                if (uidoc != null)
+                    return uidoc.Document.Title;
                 else
                     return string.Empty;
             }
@@ -260,8 +345,9 @@ namespace PyRevitLabs.PyRevit.Runtime {
 
         public string DocumentPath {
             get {
-                if (UIApp != null && UIApp.ActiveUIDocument != null)
-                    return UIApp.ActiveUIDocument.Document.PathName;
+                var uidoc = ActiveUIDocument;
+                if (uidoc != null)
+                    return uidoc.Document.PathName;
                 else
                     return string.Empty;
             }
@@ -287,13 +373,61 @@ namespace PyRevitLabs.PyRevit.Runtime {
 
         public UIControlledApplication UIControlledApp { get; set; }
 
+        /// <summary>
+        /// The active <see cref="UIDocument"/> behind <see cref="UIApp"/>, or
+        /// <c>null</c> when there is no usable UI document.
+        /// </summary>
+        /// <remarks>
+        /// <b>Invariant:</b> never throws. Because <see cref="UIApp"/> is resolved
+        /// for DB-only event hooks too, <c>UIApp.ActiveUIDocument</c> can now raise
+        /// there where it used to be unreachable behind a null handle. Revit
+        /// refusing an active document is the same condition as there not being
+        /// one, so every consumer goes through here instead of reading
+        /// <c>UIApp.ActiveUIDocument</c> directly.
+        /// </remarks>
+        public UIDocument ActiveUIDocument {
+            get {
+                try {
+                    return UIApp != null ? UIApp.ActiveUIDocument : null;
+                }
+                catch (Exception ex) {
+                    logger.Debug("No active UIDocument available | {0}", ex.Message);
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// UI application handle for this runtime, resolved from whichever
+        /// application handle the runtime was handed. This is the value the
+        /// <c>__revit__</c> builtin carries, so it is always a
+        /// <see cref="UIApplication"/> or <c>null</c> - never a bare
+        /// <see cref="Application"/>, <see cref="ControlledApplication"/> or
+        /// <see cref="UIControlledApplication"/>.
+        /// </summary>
+        /// <remarks>
+        /// <b>Warning:</b> in a DB-only <c>Application_*</c> event hook the handle
+        /// is resolved by wrapping the event's <see cref="Application"/>, which
+        /// Revit may leave without an <c>ActiveUIDocument</c> for the duration of
+        /// the event. The handle is live regardless, and
+        /// <see cref="ScriptRuntimeConfigs.EventSender"/> still holds the raw
+        /// sender.
+        ///
+        /// <para>The resolved handle is cached for the lifetime of the runtime and
+        /// is not re-resolved once the runtime is disposed. Null when no UI
+        /// application can be reached, including before a session handle has
+        /// been seeded during host startup.</para>
+        /// </remarks>
         public UIApplication UIApp {
             get {
                 if (ScriptRuntimeConfigs.CommandData != null)
                     return ScriptRuntimeConfigs.CommandData.Application;
-                else if (_uiApp != null)
-                    return _uiApp;
-                return null;
+
+                if (_uiApp == null && !IsDisposed)
+                    _uiApp = RevitAppResolver.GetUIApplication(
+                        (object)UIControlledApp ?? (object)ControlledApp ?? _app);
+
+                return _uiApp;
             }
 
             set {
@@ -302,35 +436,91 @@ namespace PyRevitLabs.PyRevit.Runtime {
         }
 
         // output
+        /// <summary>
+        /// This runtime's output window, created on first use.
+        /// </summary>
+        /// <remarks>
+        /// Warning: returns null on any thread but the host's UI thread, whatever the state of the
+        /// window. A <see cref="ScriptConsole"/> is WPF, so both constructing one and calling into
+        /// one is illegal off that thread, and unhandled there it takes Revit down. Callers that
+        /// run on background threads - the Routes HTTP workers, script-spawned threads - must treat
+        /// null as "no window" and let <see cref="ScriptIO"/> buffer and hand the text over.
+        /// <para>
+        /// <see cref="ScriptOutputUiGate.CaptureHostUiThread"/> runs in this runtime's constructor
+        /// because a runtime is only ever constructed on the host's UI thread; that is what lets
+        /// the gate tell the UI thread apart from a worker.
+        /// </para>
+        /// </remarks>
         public ScriptConsole OutputWindow {
             get {
-                // get ScriptOutput from the weak reference
+                if (!ScriptOutputUi.MayCreateOutputUi) {
+                    ReportOutputUiUnavailable();
+                    return null;
+                }
+
+                if (ScriptOutput.IsStartupRuntime(this)) {
+                    ScriptOutput.ConfigureForRuntime(this);
+                    return ScriptOutput.GetDefault(UIApp, ScriptRuntimeConfigs.DebugMode).window;
+                }
+
                 ScriptConsole output;
                 var re = _scriptOutput.TryGetTarget(out output);
-                if (re && output != null)
+                if (re && output != null && !output.ClosedByUser)
                     return output;
-                else {
-                    // Stating a new output window
-                    var newOutput = new ScriptConsole(ScriptRuntimeConfigs.DebugMode, UIApp);
+                var newOutput = new ScriptConsole(ScriptRuntimeConfigs.DebugMode, UIApp);
+                newOutput.OutputTitle = ScriptData.CommandName;
+                newOutput.OutputId = ScriptData.CommandUniqueId;
+                newOutput.AppVersion = string.Format(
+                    "{0}:{1}:{2}",
+                    EnvDict.PyRevitVersion,
+                    EngineType == ScriptEngineType.CPython ? EnvDict.PyRevitCPYVersion : EnvDict.PyRevitIPYVersion,
+                    EnvDict.RevitVersion
+                    );
 
-                    // Set output window title to command name
-                    newOutput.OutputTitle = ScriptData.CommandName;
-
-                    // Set window identity to the command unique identifier
-                    newOutput.OutputId = ScriptData.CommandUniqueId;
-
-                    // set window app version header
-                    newOutput.AppVersion = string.Format(
-                        "{0}:{1}:{2}",
-                        EnvDict.PyRevitVersion,
-                        EngineType == ScriptEngineType.CPython ? EnvDict.PyRevitCPYVersion : EnvDict.PyRevitIPYVersion,
-                        EnvDict.RevitVersion
-                        );
-
-                    _scriptOutput = new WeakReference<ScriptConsole>(newOutput);
-                    return newOutput;
-                }
+                _scriptOutput = new WeakReference<ScriptConsole>(newOutput);
+                return newOutput;
             }
+        }
+
+        /// <summary>
+        /// The window a background hand-off may render into, without resurrecting one the user
+        /// closed: <see cref="OutputWindow"/> builds a replacement, which would reopen it on the
+        /// next write from a thread that is not the host UI thread.
+        /// </summary>
+        /// <returns>The window to render into, or null when the user closed it.</returns>
+        public ScriptConsole OpenOutputWindow {
+            get {
+                if (!ScriptOutputUi.MayCreateOutputUi) {
+                    ReportOutputUiUnavailable();
+                    return null;
+                }
+
+                ScriptConsole output;
+                var re = _scriptOutput.TryGetTarget(out output);
+                if (!re || output == null)
+                    return OutputWindow;
+                return output.ClosedByUser ? null : output;
+            }
+        }
+
+        private int _outputUiUnavailableReported;
+
+        /// <summary>
+        /// Record, once per runtime, that output arrived from a thread that may not touch the
+        /// output window. Goes to the runtime log only: the record is about the output path
+        /// failing, so it must not try to use it.
+        /// </summary>
+        private void ReportOutputUiUnavailable() {
+            if (System.Threading.Interlocked.Exchange(ref _outputUiUnavailableReported, 1) != 0)
+                return;
+
+            ScriptOutputUiLog.Warn(
+                "Output for runtime {0} ('{1}') was produced on {2} and is not shown in an output "
+                    + "window; it is written to the runtime log instead. The output console is WPF "
+                    + "and can only be created on the host UI thread.",
+                ExecId,
+                ScriptData?.CommandName,
+                ScriptOutputUi.DescribeCallingThread());
         }
 
         public ScriptIO OutputStream {
@@ -367,12 +557,13 @@ namespace PyRevitLabs.PyRevit.Runtime {
 
         // disposal
         public void Dispose() {
+            IsDisposed = true;
             UIControlledApp = null;
             ControlledApp = null;
             _uiApp = null;
             _app = null;
             _scriptOutput = new WeakReference<ScriptConsole>(null);
-            _outputStream = new WeakReference<ScriptIO>(null);;
+            _outputStream = new WeakReference<ScriptIO>(null);
             _resultsDict = null;
         }
     }

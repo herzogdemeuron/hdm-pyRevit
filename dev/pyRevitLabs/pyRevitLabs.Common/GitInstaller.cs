@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using LibGit2Sharp;
 using pyRevitLabs.NLog;
@@ -34,7 +33,7 @@ namespace pyRevitLabs.Common {
         public abstract bool IsValid();
         public abstract Credentials GetCredentials();
     }
-    
+
     public class GitInstallerUsernamePasswordCredentials : GitInstallerCredentials {
         public string Username { get; set; }
         public string Password { get; set; }
@@ -79,8 +78,7 @@ namespace pyRevitLabs.Common {
             // add username and password to clone options, if provided by user
             if (creds is GitInstallerCredentials && creds.IsValid())
                 cloneOps.FetchOptions.CredentialsProvider = (_url, _usernameFromUrl, _credTypes) => creds.GetCredentials();
-            try
-            {
+            try {
                 // attempt at cloning the repo
                 logger.Debug("Cloning \"{0}:{1}\" to \"{2}\"", repoPath, branchName, destPath);
                 Repository.Clone(repoPath, destPath, cloneOps);
@@ -274,8 +272,34 @@ namespace pyRevitLabs.Common {
             return head;
         }
 
-        // get the checkedout branch from repopath
-        // @handled @logs
+        public static bool IsLocalAheadOfTrackingBranch(string repoPath) {
+            if (!IsValidRepo(repoPath))
+                return false;
+
+            using (var repo = new Repository(repoPath)) {
+                var tracked = repo.Head?.TrackedBranch;
+                if (tracked == null)
+                    return false;
+
+                var divergence = repo.ObjectDatabase.CalculateHistoryDivergence(repo.Head.Tip, tracked.Tip);
+                return divergence.AheadBy > 0;
+            }
+        }
+
+        public static bool IsSyncedWithTrackingBranch(string repoPath) {
+            if (!IsValidRepo(repoPath))
+                return true;
+
+            using (var repo = new Repository(repoPath)) {
+                var tracked = repo.Head?.TrackedBranch;
+                if (tracked == null)
+                    return true;
+
+                var divergence = repo.ObjectDatabase.CalculateHistoryDivergence(repo.Head.Tip, tracked.Tip);
+                return divergence.AheadBy == 0 && divergence.BehindBy == 0;
+            }
+        }
+
         public static string GetRemoteUrl(string repoPath, string remoteName) {
             if (IsValidRepo(repoPath)) {
                 try {

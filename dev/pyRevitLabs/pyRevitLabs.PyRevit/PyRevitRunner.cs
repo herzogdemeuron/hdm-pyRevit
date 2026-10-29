@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -36,13 +36,14 @@ namespace pyRevitLabs.PyRevit {
             // generate unique id for this execution
             ExecutionId = Guid.NewGuid().ToString();
             // setup working dir
-            WorkingDirectory = Path.Combine(Environment.GetEnvironmentVariable("TEMP"), ExecutionId);
+            WorkingDirectory = Path.Combine(CommonUtils.GetUserTempDirectory(), ExecutionId);
             CommonUtils.EnsurePath(WorkingDirectory);
         }
 
         private const string JournalNameTemplate = "PyRevitRunner_{0}.txt";
         private const string LogNameTemplate = "PyRevitRunner_{0}.log";
         private const string ManifestNameTemplate = "PyRevitRunner.addin";
+        private const string DefaultEngineConfigs = "{\"full_frame\": true}";
 
         private const string JournalTemplate = @"' pyrevitrunner generated journal
 ' 0:< 'C {0};
@@ -53,11 +54,12 @@ Jrn.Directive ""DebugMode"", ""PermissiveJournal"", 1
 Jrn.RibbonEvent ""TabActivated:Add-Ins""
 Jrn.RibbonEvent ""Execute external command:CustomCtrl_%CustomCtrl_%Add-Ins%pyRevitRunner%PyRevitRunnerCommand:PyRevitRunner.PyRevitRunnerCommand""
 Jrn.Data ""APIStringStringMapJournalData""  _
-    , 4 _
+    , 5 _
     , ""ScriptSource"" , ""{2}"" _
     , ""SearchPaths"" , ""{3}"" _
     , ""Models"" , ""{4}"" _
-    , ""LogFile"" , ""{5}""
+    , ""EngineConfigs"" , ""{5}"" _
+    , ""LogFile"" , ""{6}""
 Jrn.Command ""SystemMenu"" , ""Quit the application; prompts to save projects , ID_APP_EXIT""
 Jrn.Data ""TaskDialogResult"" , ""Do you want to save changes to Untitled?"", ""No"", ""IDNO""
 ";
@@ -121,6 +123,7 @@ Jrn.Data ""TaskDialogResult"" , ""Do you want to save changes to Untitled?"", ""
         }
 
         private void GenerateJournal() {
+            var engineConfigs = DefaultEngineConfigs.Replace("\"", "\"\"");
             File.WriteAllText(
                 JournalFile,
                 string.Format(
@@ -130,6 +133,7 @@ Jrn.Data ""TaskDialogResult"" , ""Do you want to save changes to Untitled?"", ""
                     Script,                                             // script path
                     "",                                                 // sys paths
                     string.Join(";", ModelPaths),                       // model paths
+                    engineConfigs,                                      // engine configs
                     LogFile                                             // log file
                 ));
         }
@@ -145,8 +149,7 @@ Jrn.Data ""TaskDialogResult"" , ""Do you want to save changes to Untitled?"", ""
                                       addinPath: WorkingDirectory);
         }
 
-        private static void CopyAll(DirectoryInfo source, DirectoryInfo target)
-        {
+        private static void CopyAll(DirectoryInfo source, DirectoryInfo target) {
             if (source.FullName.NormalizeAsPath() == target.FullName.NormalizeAsPath())
                 return;
 
@@ -154,15 +157,13 @@ Jrn.Data ""TaskDialogResult"" , ""Do you want to save changes to Untitled?"", ""
             CommonUtils.EnsurePath(target.FullName);
 
             // Copy each file into it's new directory.
-            foreach (FileInfo fi in source.GetFiles())
-            {
+            foreach (FileInfo fi in source.GetFiles()) {
                 logger.Debug(@"Copying {0}\{1}", target.FullName, fi.Name);
                 fi.CopyTo(Path.Combine(target.ToString(), fi.Name), true);
             }
 
             // Copy each subdirectory using recursion.
-            foreach (DirectoryInfo diSourceSubDir in source.GetDirectories())
-            {
+            foreach (DirectoryInfo diSourceSubDir in source.GetDirectories()) {
                 DirectoryInfo nextTargetSubDir =
                     target.CreateSubdirectory(diSourceSubDir.Name);
                 CopyAll(diSourceSubDir, nextTargetSubDir);
@@ -215,7 +216,7 @@ Jrn.Data ""TaskDialogResult"" , ""Do you want to save changes to Untitled?"", ""
                 revitProcess.WaitForExit();
             }
             execEnv.End(opts);
-            
+
             return execEnv;
         }
     }

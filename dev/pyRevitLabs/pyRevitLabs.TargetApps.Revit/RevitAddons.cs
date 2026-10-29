@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.IO;
+using System.Linq;
 using System.Xml;
 
 using pyRevitLabs.Common;
@@ -19,9 +20,10 @@ namespace pyRevitLabs.TargetApps.Revit {
             VendorId = doc.DocumentElement.SelectSingleNode("/RevitAddIns/AddIn/VendorId").InnerText;
 
             var addInIdNode = doc.DocumentElement.SelectSingleNode("/RevitAddIns/AddIn/AddInId");
-            if(addInIdNode != null) {
+            if (addInIdNode != null) {
                 AddInId = addInIdNode.InnerText;
-            } else {
+            }
+            else {
                 AddInId = doc.DocumentElement.SelectSingleNode("/RevitAddIns/AddIn/ClientId").InnerText;
             }
         }
@@ -53,18 +55,37 @@ namespace pyRevitLabs.TargetApps.Revit {
 </RevitAddIns>
 ";
         public static string GetRevitAddonsFolder(int revitYear, bool allUsers = false) {
-            var rootFolder =
-                allUsers ? System.Environment.SpecialFolder.CommonApplicationData : System.Environment.SpecialFolder.ApplicationData;
-            return Path.Combine(System.Environment.GetFolderPath(rootFolder),
-                                "Autodesk", "Revit", "Addins", revitYear.ToString());
+            if (allUsers) {
+                if (revitYear >= 2027) {
+                    // Revit 2027+ moved the all-users add-in manifest location.
+                    // The legacy ProgramData path is ignored entirely.
+                    // The version-specific install dir (e.g. "Revit 2027\AddIns\")
+                    // is reserved for signed internal add-ins only.
+                    // Third-party unsigned add-ins must use:
+                    //   C:\Program Files\Autodesk\Revit\Addins\<year>
+                    return Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                        "Autodesk", "Revit", "Addins", revitYear.ToString()
+                    );
+                }
+                else {
+                    // Revit ≤2026: all-users manifests go in ProgramData
+                    return Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                        "Autodesk", "Revit", "Addins", revitYear.ToString()
+                    );
+                }
+            }
+            else {
+                // Per-user path is unchanged for all Revit versions
+                return Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "Autodesk", "Revit", "Addins", revitYear.ToString()
+                );
+            }
         }
 
         public static string GetRevitAddonsFilePath(int revitYear, string addinFileName, bool allusers = false) {
-            if (UserEnv.IsRunAsElevated())
-                allusers = true;
-            
-            var rootFolder =
-                allusers ? System.Environment.SpecialFolder.CommonApplicationData : System.Environment.SpecialFolder.ApplicationData;
             return Path.Combine(GetRevitAddonsFolder(revitYear, allUsers: allusers), addinFileName + ".addin");
         }
 
@@ -113,10 +134,11 @@ namespace pyRevitLabs.TargetApps.Revit {
         }
 
         public static RevitAddonManifest GetManifest(int revitYear, string addinName, bool allUsers) {
-            string addinPath = GetRevitAddonsFolder(revitYear, allUsers: allUsers);
-            if (CommonUtils.VerifyPath(addinPath)) {
-                foreach (string file in Directory.GetFiles(addinPath)) {
-                    if (file.ToLower().EndsWith(".addin")) {
+            // Helper method to search for manifest in a given path
+            RevitAddonManifest SearchManifestInPath(string searchPath) {
+                if (CommonUtils.VerifyPath(searchPath)) {
+                    foreach (string file in Directory.GetFiles(searchPath)
+                                                     .Where(f => f.EndsWith(".addin", StringComparison.OrdinalIgnoreCase))) {
                         try {
                             logger.Debug(string.Format("Reading Revit \"{0}\" manifest file \"{1}\"",
                                                        revitYear, file));
@@ -133,12 +155,29 @@ namespace pyRevitLabs.TargetApps.Revit {
                         }
                     }
                 }
-
+                else {
+                    logger.Debug("Addons path \"{0}\" does not exist", searchPath);
+                }
                 return null;
             }
-            else {
-                logger.Debug("Addons path \"{0}\" does not exist", addinPath);
+
+            // First, search in the new location (if applicable)
+            string addinPath = GetRevitAddonsFolder(revitYear, allUsers: allUsers);
+            var manifest = SearchManifestInPath(addinPath);
+            if (manifest != null)
+                return manifest;
+
+            // For Revit 2027+ all-users installations, also check the old location for migration scenarios
+            if (allUsers && revitYear >= 2027) {
+                var oldPath = Path.Combine(
+                    System.Environment.GetFolderPath(System.Environment.SpecialFolder.CommonApplicationData),
+                    "Autodesk", "Revit", "Addins", revitYear.ToString());
+                logger.Debug("Also checking old all-users location for Revit {0}: {1}", revitYear, oldPath);
+                manifest = SearchManifestInPath(oldPath);
+                if (manifest != null)
+                    return manifest;
             }
+
             return null;
         }
 

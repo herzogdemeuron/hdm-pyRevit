@@ -5,16 +5,21 @@ Examples:
     from pyrevit.api import AdWindows
     ```
 """
+
 import os.path as op
 
-#pylint: disable=E0401,W0611,W0703,C0413
+# pylint: disable=E0401,W0611,W0703,C0413
 from pyrevit.framework import clr
+from pyrevit._perf import mark as _perfmark
 
-clr.AddReference('RevitAPI')
-clr.AddReference('RevitAPIUI')
-clr.AddReference('AdWindows')
-clr.AddReference('UIFramework')
-clr.AddReference('UIFrameworkServices')
+_perfmark("pyrevit.api:entry")
+
+clr.AddReference("RevitAPI")
+clr.AddReference("RevitAPIUI")
+clr.AddReference("AdWindows")
+clr.AddReference("UIFramework")
+clr.AddReference("UIFrameworkServices")
+_perfmark("pyrevit.api:after clr.AddReference (Revit+AdWindows+UIFramework)")
 
 import UIFramework
 import UIFrameworkServices
@@ -29,6 +34,8 @@ from Autodesk.Revit import DB
 from Autodesk.Revit import UI
 from Autodesk.Revit.DB import ExternalService
 from Autodesk.Revit.DB import DirectContext3D
+
+_perfmark("pyrevit.api:after Autodesk.* imports")
 
 
 def get_product_serial_number():
@@ -46,7 +53,7 @@ def is_product_demo():
     Returns:
         (bool): True if product is using demo license
     """
-    return get_product_serial_number() == '000-00000000'
+    return get_product_serial_number() == "000-00000000"
 
 
 def is_api_object(data_type):
@@ -58,5 +65,5 @@ def is_api_object(data_type):
     Returns:
         (bool): True if object belongs to Revit API
     """
-    if hasattr(data_type, 'GetType'):
-        return 'Autodesk.Revit.' in data_type.GetType().Namespace
+    if hasattr(data_type, "GetType"):
+        return "Autodesk.Revit." in data_type.GetType().Namespace
