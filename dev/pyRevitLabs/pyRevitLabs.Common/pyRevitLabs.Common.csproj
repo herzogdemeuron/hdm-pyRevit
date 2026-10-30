@@ -51,8 +51,12 @@
         <Copy SourceFiles="$(OutDir)\Microsoft.CodeAnalysis.dll" DestinationFolder="$(PyRevitBinDir)"/>
         <Copy SourceFiles="$(OutDir)\Microsoft.CodeAnalysis.CSharp.dll" DestinationFolder="$(PyRevitBinDir)"/>
         <Copy SourceFiles="$(OutDir)\Microsoft.CodeAnalysis.VisualBasic.dll" DestinationFolder="$(PyRevitBinDir)"/>
+        <!-- HdM: do not copy the platform-neutral System.Management.dll into the netcore bin.
+             Revit loads it ahead of its own copy and it throws PlatformNotSupportedException
+             for every add-in in the session; Revit 2025+ ships a working System.Management.
+             The CLI in bin\ keeps it because it resolves the Windows build via its deps.json. -->
         <Copy SourceFiles="$(OutDir)\System.Management.dll" DestinationFolder="$(PyRevitBinDir)"
-            Condition="'$(TargetFrameworkIdentifier)' == '.NetCoreApp' and Exists('$(OutDir)\System.Management.dll')" />
+            Condition="'$(TargetFrameworkIdentifier)' == '.NetCoreApp' and '$(PyRevitBinDir)' == '$(PyRevitRootDir)\bin' and Exists('$(OutDir)\System.Management.dll')" />
         <Copy SourceFiles="$(OutDir)\runtimes\win\lib\net8.0\System.Management.dll" DestinationFolder="$(PyRevitBinDir)\runtimes\win\lib\net8.0"
             Condition="'$(TargetFrameworkIdentifier)' == '.NetCoreApp' and Exists('$(OutDir)\runtimes\win\lib\net8.0\System.Management.dll')" />
         <Copy SourceFiles="$(OutDir)\System.Management.dll" DestinationFolder="$(PyRevitRootDir)\bin"
